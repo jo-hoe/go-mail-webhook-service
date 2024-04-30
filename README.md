@@ -12,19 +12,15 @@ Webhook allowing to pull mails and send requests to an callback url.
 
 ```yaml
 - mailServiceConfig: 
-    mail: example@gmail.com
-    credentialsPath: /path/to/client_secrets/file/
+    mail: "example@gmail.com"
+    credentialsPath: "/path/to/client_secrets/file/"
   subjectSelectorRegex: ".*"
-  bodySelectorRegex:
-    - name: test
-      regex: "[a-z]{0,6}"
-    - name2: test2
-      regex: ".*"
-      ...
+  bodySelectorRegexList:
+  - name: "test"
+    regex: "[a-z]{0,6}"
+  - name: "test2"
+    regex: ".*"
   callback:
-    url: https://example.com/callback
-    method: POST
-    headers: 
-      Content-Type: application/json
-      Accept: application/json
+    url: "https://example.com/callback"
+    method: "POST"
 ```
