@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"path"
@@ -19,6 +18,11 @@ type GmailService struct {
 	credentialsPath string
 }
 
+const (
+	credentialsFileName = "client_secrets.json"
+	tokenFileName       = "request.token"
+)
+
 func NewGailService(credentialsPath string) *GmailService {
 	return &GmailService{
 		credentialsPath: credentialsPath,
@@ -30,7 +34,7 @@ func (service *GmailService) GetAllUnreadMail(context context.Context) ([]Mail, 
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return nil, nil
 }
 
@@ -39,7 +43,7 @@ func (service *GmailService) SetMailAsRead(context context.Context, mail Mail) e
 	if err != nil {
 		return err
 	}
-	
+
 	return nil
 }
 
@@ -58,9 +62,9 @@ func (service *GmailService) getGmailService(context context.Context, scope ...s
 }
 
 func (service *GmailService) getGmailConfig(scope ...string) (*oauth2.Config, error) {
-	b, err := os.ReadFile(path.Join(service.credentialsPath, "credentials.json"))
+	b, err := os.ReadFile(path.Join(service.credentialsPath, credentialsFileName))
 	if err != nil {
-		log.Fatalf("Unable to read client secret file: %v", err)
+		return nil, err
 	}
 
 	// If modifying these scopes, delete your previously saved token.json.
@@ -72,14 +76,14 @@ func (service *GmailService) getClient(context context.Context, config *oauth2.C
 	// The file token.json stores the user's access and refresh tokens, and is
 	// created automatically when the authorization flow completes for the first
 	// time.
-	tokenFile := path.Join(service.credentialsPath, "token.json")
-	token, err := tokenFromFile(tokenFile)
+	tokenFilePath := path.Join(service.credentialsPath, tokenFileName)
+	token, err := tokenFromFile(tokenFilePath)
 	if err != nil {
 		token, err = getTokenFromWeb(context, config)
 		if err != nil {
 			return nil, err
 		}
-		err = saveToken(tokenFile, token)
+		err = saveToken(tokenFilePath, token)
 		if err != nil {
 			return nil, err
 		}
@@ -95,39 +99,37 @@ func getTokenFromWeb(context context.Context, config *oauth2.Config) (*oauth2.To
 
 	var authCode string
 	if _, err := fmt.Scan(&authCode); err != nil {
-		log.Fatalf("Unable to read authorization code: %v", err)
 		return nil, err
 	}
 
 	token, err := config.Exchange(context, authCode)
 	if err != nil {
-		log.Fatalf("Unable to retrieve token from web: %v", err)
 		return nil, err
 	}
 	return token, nil
 }
 
 // Retrieves a token from a local file.
-func tokenFromFile(file string) (*oauth2.Token, error) {
-	f, err := os.Open(file)
+func tokenFromFile(filePath string) (*oauth2.Token, error) {
+	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
-	tok := &oauth2.Token{}
-	err = json.NewDecoder(f).Decode(tok)
-	return tok, err
+	defer file.Close()
+	token := &oauth2.Token{}
+	err = json.NewDecoder(file).Decode(token)
+	return token, err
 }
 
 // Saves a token to a file path.
 func saveToken(path string, token *oauth2.Token) error {
 	fmt.Printf("Saving credential file to: %s\n", path)
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	json.NewEncoder(f).Encode(token)
+	defer file.Close()
+	json.NewEncoder(file).Encode(token)
 
 	return nil
 }
