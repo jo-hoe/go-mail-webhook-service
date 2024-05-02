@@ -19,7 +19,7 @@ func TestNewConfig(t *testing.T) {
 			name: "positive test",
 			args: args{
 				yamlBytes: []byte(`
-- mailServiceConfig: 
+- mailClientConfig: 
     mail: "example@gmail.com"
     credentialsPath: "/path/to/client_secrets/file/"
   subjectSelectorRegex: ".*"
