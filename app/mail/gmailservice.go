@@ -32,9 +32,17 @@ func NewGmailService(credentialsPath string) *GmailService {
 }
 
 func (service *GmailService) GetAllUnreadMail(context context.Context) ([]Mail, error) {
-	_, err := service.getGmailService(context, gmail.GmailModifyScope)
+	gmailService, err := service.getGmailService(context, gmail.GmailModifyScope)
 	if err != nil {
 		return nil, err
+	}
+	messages, err := gmailService.Users.Messages.List("me").Do()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, message := range messages.Messages {
+		fmt.Println(message.Id)
 	}
 
 	return nil, nil
