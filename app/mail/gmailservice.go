@@ -19,8 +19,8 @@ type GmailService struct {
 }
 
 const (
-	credentialsFileName = "client_secret.json"
-	tokenFileName       = "request.token"
+	CredentialsFileName = "client_secret.json"
+	TokenFileName       = "request.token"
 )
 
 var GMailDomainNames = []string{"googlemail.com", "gmail.com"}
@@ -50,7 +50,7 @@ func (service *GmailService) MarkMailAsRead(context context.Context, mail Mail) 
 }
 
 func (service *GmailService) getGmailService(context context.Context, scope ...string) (*gmail.Service, error) {
-	config, err := service.getGmailConfig(scope...)
+	config, err := GetGmailConfig(service.credentialsPath, scope...)
 	if err != nil {
 		return nil, err
 	}
@@ -63,8 +63,8 @@ func (service *GmailService) getGmailService(context context.Context, scope ...s
 	return gmail.NewService(context, option.WithHTTPClient(client))
 }
 
-func (service *GmailService) getGmailConfig(scope ...string) (*oauth2.Config, error) {
-	b, err := os.ReadFile(path.Join(service.credentialsPath, credentialsFileName))
+func GetGmailConfig(credentialsPath string, scope ...string) (*oauth2.Config, error) {
+	b, err := os.ReadFile(path.Join(credentialsPath, CredentialsFileName))
 	if err != nil {
 		return nil, err
 	}
@@ -78,14 +78,14 @@ func (service *GmailService) getClient(context context.Context, config *oauth2.C
 	// The file token.json stores the user's access and refresh tokens, and is
 	// created automatically when the authorization flow completes for the first
 	// time.
-	tokenFilePath := path.Join(service.credentialsPath, tokenFileName)
+	tokenFilePath := path.Join(service.credentialsPath, TokenFileName)
 	token, err := tokenFromFile(tokenFilePath)
 	if err != nil {
-		token, err = getTokenFromWeb(context, config)
+		token, err = GetTokenFromWeb(context, config)
 		if err != nil {
 			return nil, err
 		}
-		err = saveToken(tokenFilePath, token)
+		err = SaveToken(tokenFilePath, token)
 		if err != nil {
 			return nil, err
 		}
@@ -94,13 +94,13 @@ func (service *GmailService) getClient(context context.Context, config *oauth2.C
 }
 
 // Request a token from the web, then returns the retrieved token.
-func getTokenFromWeb(context context.Context, config *oauth2.Config) (*oauth2.Token, error) {
+func GetTokenFromWeb(context context.Context, config *oauth2.Config) (*oauth2.Token, error) {
 	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
 	fmt.Printf("Go to the following link in your browser then type the "+
 		"authorization code: \n%v\n", authURL)
 
 	var authCode string
-	// TODO: reading from console should be optimized
+	fmt.Printf("Enter the authorization code: ")
 	if _, err := fmt.Scan(&authCode); err != nil {
 		return nil, err
 	}
@@ -125,7 +125,7 @@ func tokenFromFile(filePath string) (*oauth2.Token, error) {
 }
 
 // Saves a token to a file path.
-func saveToken(path string, token *oauth2.Token) error {
+func SaveToken(path string, token *oauth2.Token) error {
 	fmt.Printf("Saving credential file to: %s\n", path)
 	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
