@@ -334,16 +334,16 @@ func Test_processMails(t *testing.T) {
 						},
 					},
 				},
-				config:      &config.Config{
+				config: &config.Config{
 					SubjectSelectorRegex: "testSubject",
 					BodySelectorRegexList: []config.BodySelectorRegex{
-						config.BodySelectorRegex{
+						{
 							Regex: "testValue",
 							Name:  "testKey",
 						},
 					},
 				},
-				wantErrLog:  false,
+				wantErrLog: false,
 			},
 		},
 	}
