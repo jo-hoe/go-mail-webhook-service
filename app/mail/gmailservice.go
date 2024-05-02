@@ -81,14 +81,7 @@ func (service *GmailService) getClient(context context.Context, config *oauth2.C
 	tokenFilePath := path.Join(service.credentialsPath, TokenFileName)
 	token, err := tokenFromFile(tokenFilePath)
 	if err != nil {
-		token, err = GetTokenFromWeb(context, config)
-		if err != nil {
-			return nil, err
-		}
-		err = SaveToken(tokenFilePath, token)
-		if err != nil {
-			return nil, err
-		}
+		return nil, err
 	}
 	return config.Client(context, token), nil
 }
