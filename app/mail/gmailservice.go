@@ -129,7 +129,10 @@ func saveToken(path string, token *oauth2.Token) error {
 		return err
 	}
 	defer file.Close()
-	json.NewEncoder(file).Encode(token)
+	err = json.NewEncoder(file).Encode(token)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
