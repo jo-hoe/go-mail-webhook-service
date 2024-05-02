@@ -11,7 +11,7 @@ Webhook allowing to pull mails and send requests to an callback url.
 ## Configuration Example
 
 ```yaml
-- mailServiceConfig: 
+- mailClientConfig: 
     mail: "example@gmail.com"
     credentialsPath: "/path/to/client_secrets/file/"
   subjectSelectorRegex: ".*"
