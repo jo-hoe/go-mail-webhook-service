@@ -5,13 +5,13 @@ import (
 )
 
 type Config struct {
-	MailServiceConfig     MailServiceConfig   `yaml:"mailServiceConfig"`
+	MailClientConfig      MailClientConfig    `yaml:"mailClientConfig"`
 	SubjectSelectorRegex  string              `yaml:"subjectSelectorRegex"`
 	BodySelectorRegexList []BodySelectorRegex `yaml:"bodySelectorRegexList"`
 	Callback              Callback            `yaml:"callback"`
 }
 
-type MailServiceConfig struct {
+type MailClientConfig struct {
 	Mail            string `yaml:"mail"`
 	CredentialsPath string `yaml:"credentialsPath"`
 }
