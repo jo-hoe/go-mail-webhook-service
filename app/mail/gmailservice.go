@@ -23,7 +23,9 @@ const (
 	tokenFileName       = "request.token"
 )
 
-func NewGailService(credentialsPath string) *GmailService {
+var GMailDomainNames = []string{"googlemail.com", "gmail.com"}
+
+func NewGmailService(credentialsPath string) *GmailService {
 	return &GmailService{
 		credentialsPath: credentialsPath,
 	}

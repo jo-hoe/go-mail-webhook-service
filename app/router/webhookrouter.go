@@ -1,16 +1,15 @@
 package router
 
 import (
-	"github.com/jo-hoe/go-mail-webhook-service/app/mail"
+	"github.com/jo-hoe/go-mail-webhook-service/app/config"
 )
 
-
-type WebhookRouter struct {}
-
-func NewRouter() *WebhookRouter {
-	return &WebhookRouter{}
+type WebhookRouter struct {
+	config *config.Config
 }
 
-func (r *WebhookRouter) Handle(mail *mail.Mail) error {
- 	return nil
+func NewRouter(config *config.Config) *WebhookRouter {
+	return &WebhookRouter{
+		config: config,
+	}
 }

@@ -34,7 +34,7 @@ func TestNewConfig(t *testing.T) {
 			},
 			want: &[]Config{
 				{
-					MailServiceConfig: MailServiceConfig{
+					MailClientConfig: MailClientConfig{
 						Mail:            "example@gmail.com",
 						CredentialsPath: "/path/to/client_secrets/file/",
 					},
