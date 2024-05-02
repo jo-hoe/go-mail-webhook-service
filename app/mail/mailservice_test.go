@@ -21,11 +21,11 @@ func TestNewMailClientService(t *testing.T) {
 			name: "generate gmail service",
 			args: args{
 				mailClientConfig: &config.MailClientConfig{
-					Mail:     "test@gmail.com",
+					Mail:            "test@gmail.com",
 					CredentialsPath: "testPath",
 				},
 			},
-			want:    &GmailService{
+			want: &GmailService{
 				credentialsPath: "testPath",
 			},
 			wantErr: false,

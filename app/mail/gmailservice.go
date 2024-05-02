@@ -40,7 +40,7 @@ func (service *GmailService) GetAllUnreadMail(context context.Context) ([]Mail, 
 	return nil, nil
 }
 
-func (service *GmailService) SetMailAsRead(context context.Context, mail Mail) error {
+func (service *GmailService) MarkMailAsRead(context context.Context, mail Mail) error {
 	_, err := service.getGmailService(context, gmail.GmailModifyScope)
 	if err != nil {
 		return err
