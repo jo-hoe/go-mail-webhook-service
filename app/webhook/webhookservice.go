@@ -1,4 +1,4 @@
-package router
+package webhook
 
 import (
 	"bytes"
@@ -12,23 +12,23 @@ import (
 	"github.com/jo-hoe/go-mail-webhook-service/app/mail"
 )
 
-type WebhookRouter struct {
+type WebhookService struct {
 	configs *[]config.Config
 }
 
-func NewRouter(configs *[]config.Config) *WebhookRouter {
-	return &WebhookRouter{
+func NewWebhookService(configs *[]config.Config) *WebhookService {
+	return &WebhookService{
 		configs: configs,
 	}
 }
 
-func (router *WebhookRouter) Run(ctx context.Context, client *http.Client) {
-	for _, config := range *router.configs {
-		go route(ctx, client, &config)
+func (webhookService *WebhookService) Run(ctx context.Context, client *http.Client) {
+	for _, config := range *webhookService.configs {
+		go createWebhook(ctx, client, &config)
 	}
 }
 
-func route(ctx context.Context, client *http.Client, config *config.Config) {
+func createWebhook(ctx context.Context, client *http.Client, config *config.Config) {
 	mailService, err := mail.NewMailClientService(&config.MailClientConfig)
 	if err != nil {
 		fmt.Println(err)
@@ -51,7 +51,7 @@ func processMails(ctx context.Context, client *http.Client, config *config.Confi
 
 func processMail(ctx context.Context, client *http.Client,
 	mailService mail.MailClientService, mail mail.Mail, config *config.Config) {
-		
+
 	request, err := constructRequest(mail, config)
 	if err != nil {
 		fmt.Println(err)
