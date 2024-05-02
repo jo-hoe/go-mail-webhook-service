@@ -10,7 +10,7 @@ import (
 
 type MailClientService interface {
 	GetAllUnreadMail(context context.Context) ([]Mail, error)
-	SetMailAsRead(context context.Context, mail Mail) error
+	MarkMailAsRead(context context.Context, mail Mail) error
 }
 
 type Mail struct {
