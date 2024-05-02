@@ -18,8 +18,8 @@ func TestIntegrationGmailService_getGmailService(t *testing.T) {
 	if err != nil {
 		t.Error("could not get resources directory")
 	}
-	copyFile(filepath.Join(assetsDirectory, credentialsFileName), filepath.Join(testRootDirectory, credentialsFileName), t)
-	copyFile(filepath.Join(assetsDirectory, tokenFileName), filepath.Join(testRootDirectory, tokenFileName), t)
+	copyFile(filepath.Join(assetsDirectory, CredentialsFileName), filepath.Join(testRootDirectory, CredentialsFileName), t)
+	copyFile(filepath.Join(assetsDirectory, TokenFileName), filepath.Join(testRootDirectory, TokenFileName), t)
 
 	type args struct {
 		context context.Context
