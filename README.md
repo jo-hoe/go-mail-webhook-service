@@ -24,3 +24,8 @@ Webhook allowing to pull mails and send requests to an callback url.
     url: "https://example.com/callback"
     method: "POST"
 ```
+
+## Related Links
+
+- [create gmail credentials](https://developers.google.com/gmail/api/auth/web-server#create_a_client_id_and_client_secret)
+- [gmail usage limits](https://developers.google.com/gmail/api/reference/quota)

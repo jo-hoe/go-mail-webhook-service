@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"reflect"
+	"sync"
 	"testing"
 
 	"github.com/jo-hoe/go-mail-webhook-service/app/config"
@@ -286,8 +287,10 @@ func Test_processMail(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+		var wg sync.WaitGroup
+		wg.Add(1)
 		t.Run(tt.name, func(t *testing.T) {
-			processMail(tt.args.ctx, tt.args.client, tt.args.mailService, tt.args.mail, tt.args.config)
+			processMail(tt.args.ctx, tt.args.client, tt.args.mailService, tt.args.mail, tt.args.config, &wg)
 		})
 		bufferString := logBuffer.String()
 		if tt.args.wantErrLog && len(bufferString) == 0 {

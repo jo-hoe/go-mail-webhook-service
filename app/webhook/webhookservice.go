@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"sync"
 
 	"github.com/jo-hoe/go-mail-webhook-service/app/config"
 	"github.com/jo-hoe/go-mail-webhook-service/app/mail"
@@ -23,12 +24,16 @@ func NewWebhookService(configs *[]config.Config) *WebhookService {
 }
 
 func (webhookService *WebhookService) Run(ctx context.Context, client *http.Client) {
+	var wg sync.WaitGroup
 	for _, config := range *webhookService.configs {
-		go createWebhook(ctx, client, &config)
+		wg.Add(1)
+		go createWebhook(ctx, client, &config, &wg)
 	}
+	wg.Wait()
 }
 
-func createWebhook(ctx context.Context, client *http.Client, config *config.Config) {
+func createWebhook(ctx context.Context, client *http.Client, config *config.Config, wg *sync.WaitGroup) {
+	defer wg.Done()
 	mailService, err := mail.NewMailClientService(&config.MailClientConfig)
 	if err != nil {
 		fmt.Println(err)
@@ -44,13 +49,17 @@ func processMails(ctx context.Context, client *http.Client, config *config.Confi
 		return
 	}
 	filteredMails := filterMailsBySubject(allMails, config.SubjectSelectorRegex)
+	var wg sync.WaitGroup
 	for _, mail := range filteredMails {
-		go processMail(ctx, client, mailService, mail, config)
+		wg.Add(1)
+		go processMail(ctx, client, mailService, mail, config, &wg)
 	}
+	wg.Wait()
 }
 
-func processMail(ctx context.Context, client *http.Client,
-	mailService mail.MailClientService, mail mail.Mail, config *config.Config) {
+func processMail(ctx context.Context, client *http.Client, mailService mail.MailClientService,
+	mail mail.Mail, config *config.Config, wg *sync.WaitGroup) {
+	defer wg.Done()
 
 	request, err := constructRequest(mail, config)
 	if err != nil {

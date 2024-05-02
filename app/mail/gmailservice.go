@@ -19,7 +19,7 @@ type GmailService struct {
 }
 
 const (
-	credentialsFileName = "client_secrets.json"
+	credentialsFileName = "client_secret.json"
 	tokenFileName       = "request.token"
 )
 
@@ -32,7 +32,7 @@ func NewGmailService(credentialsPath string) *GmailService {
 }
 
 func (service *GmailService) GetAllUnreadMail(context context.Context) ([]Mail, error) {
-	_, err := service.getGmailService(context, gmail.GmailReadonlyScope)
+	_, err := service.getGmailService(context, gmail.GmailModifyScope)
 	if err != nil {
 		return nil, err
 	}
@@ -100,6 +100,7 @@ func getTokenFromWeb(context context.Context, config *oauth2.Config) (*oauth2.To
 		"authorization code: \n%v\n", authURL)
 
 	var authCode string
+	// TODO: reading from console should be optimized
 	if _, err := fmt.Scan(&authCode); err != nil {
 		return nil, err
 	}
