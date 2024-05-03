@@ -75,7 +75,6 @@ func (service *GmailService) MarkMailAsRead(context context.Context, mail Mail) 
 	req := &gmail.ModifyMessageRequest{
 		RemoveLabelIds: []string{"UNREAD"},
 	}
-
 	_, err = gmailService.Users.Messages.Modify("me", mail.Id, req).Do()
 	if err != nil {
 		return err
@@ -151,25 +150,6 @@ func (service *GmailService) getClient(context context.Context, config *oauth2.C
 	return config.Client(context, token), nil
 }
 
-// Request a token from the web, then returns the retrieved token.
-func GetTokenFromWeb(context context.Context, config *oauth2.Config) (*oauth2.Token, error) {
-	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
-	fmt.Printf("Go to the following link in your browser then type the "+
-		"authorization code: \n%v\n", authURL)
-
-	var authCode string
-	fmt.Printf("Enter the authorization code: ")
-	if _, err := fmt.Scan(&authCode); err != nil {
-		return nil, err
-	}
-
-	token, err := config.Exchange(context, authCode)
-	if err != nil {
-		return nil, err
-	}
-	return token, nil
-}
-
 // Retrieves a token from a local file.
 func tokenFromFile(filePath string) (*oauth2.Token, error) {
 	file, err := os.Open(filePath)
@@ -180,20 +160,4 @@ func tokenFromFile(filePath string) (*oauth2.Token, error) {
 	token := &oauth2.Token{}
 	err = json.NewDecoder(file).Decode(token)
 	return token, err
-}
-
-// Saves a token to a file path.
-func SaveToken(path string, token *oauth2.Token) error {
-	fmt.Printf("Saving credential file to: %s\n", path)
-	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	err = json.NewEncoder(file).Encode(token)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
