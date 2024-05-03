@@ -14,6 +14,7 @@ type MailClientService interface {
 }
 
 type Mail struct {
+	Id      string
 	Subject string
 	Body    string
 }

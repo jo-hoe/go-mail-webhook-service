@@ -2,8 +2,10 @@ package mail
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path"
@@ -32,29 +34,84 @@ func NewGmailService(credentialsPath string) *GmailService {
 }
 
 func (service *GmailService) GetAllUnreadMail(context context.Context) ([]Mail, error) {
+	result := make([]Mail, 0)
 	gmailService, err := service.getGmailService(context, gmail.GmailModifyScope)
 	if err != nil {
-		return nil, err
+		return result, err
 	}
-	messages, err := gmailService.Users.Messages.List("me").Do()
+
+	user := "me"
+	listCall := gmailService.Users.Messages.List(user).Q("is:unread")
+	resp, err := listCall.Do()
 	if err != nil {
-		return nil, err
+		return result, fmt.Errorf("unable to retrieve messages: %v", err)
 	}
 
-	for _, message := range messages.Messages {
-		fmt.Println(message.Id)
+	for _, message := range resp.Messages {
+		fullMessage, err := gmailService.Users.Messages.Get(user, message.Id).Format("full").Do()
+		if err != nil {
+			return result, err
+		}
+
+		subject := extractSubject(fullMessage.Payload.Headers)
+		body := extractPlainTextBody(fullMessage.Payload.Parts)
+
+		result = append(result, Mail{
+			Id:      message.Id,
+			Subject: subject,
+			Body:    body,
+		})
 	}
 
-	return nil, nil
+	return result, nil
 }
 
 func (service *GmailService) MarkMailAsRead(context context.Context, mail Mail) error {
-	_, err := service.getGmailService(context, gmail.GmailModifyScope)
+	gmailService, err := service.getGmailService(context, gmail.GmailModifyScope)
+	if err != nil {
+		return err
+	}
+
+	req := &gmail.ModifyMessageRequest{
+		RemoveLabelIds: []string{"UNREAD"},
+	}
+
+	_, err = gmailService.Users.Messages.Modify("me", mail.Id, req).Do()
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func extractSubject(headers []*gmail.MessagePartHeader) string {
+	for _, header := range headers {
+		if header.Name == "Subject" {
+			return header.Value
+		}
+	}
+	return ""
+}
+
+func extractPlainTextBody(parts []*gmail.MessagePart) string {
+	for _, part := range parts {
+		if part.MimeType == "text/plain" {
+			data, err := base64.URLEncoding.DecodeString(part.Body.Data)
+			if err != nil {
+				log.Printf("Error decoding body data: %v", err)
+				continue
+			}
+			return string(data)
+		}
+		// Handle multipart email: recursively check for plain text
+		if len(part.Parts) > 0 {
+			body := extractPlainTextBody(part.Parts)
+			if body != "" {
+				return body
+			}
+		}
+	}
+	return ""
 }
 
 func (service *GmailService) getGmailService(context context.Context, scope ...string) (*gmail.Service, error) {
