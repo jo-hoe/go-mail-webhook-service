@@ -96,19 +96,6 @@ func sendRequest(request *http.Request, client *http.Client) error {
 		return err
 	}
 
-	bodyBytes, err := io.ReadAll(request.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read response body: %s", err)
-	}
-	bodyString := string(bodyBytes)
-
-	fmt.Printf(
-		"send request: %s to %s with body: %s\n",
-		request.Method,
-		request.URL.String(),
-		getPrefix(bodyString, 128),
-	)
-
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("status code: %d for request: %s - %s", resp.StatusCode, request.Method, request.URL.String())
 	} else {
