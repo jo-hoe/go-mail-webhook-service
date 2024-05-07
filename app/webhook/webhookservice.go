@@ -49,6 +49,9 @@ func processMails(ctx context.Context, client *http.Client, config *config.Confi
 		return
 	}
 	filteredMails := filterMailsBySubject(allMails, config.SubjectSelectorRegex)
+	if len(filteredMails) != 0 {
+		fmt.Printf("%d mails fit to subject selector: '%s'\n", len(filteredMails), config.SubjectSelectorRegex)
+	}
 	var wg sync.WaitGroup
 	for _, mail := range filteredMails {
 		wg.Add(1)
@@ -75,6 +78,8 @@ func processMail(ctx context.Context, client *http.Client, mailService mail.Mail
 	if err != nil {
 		fmt.Println(err)
 	}
+
+	fmt.Printf("successfully processed mail with subject: %s and body: %s\n", mail.Subject, mail.Body)
 }
 
 func sendRequest(request *http.Request, client *http.Client) error {
