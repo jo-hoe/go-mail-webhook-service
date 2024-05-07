@@ -3,10 +3,12 @@ package webhook
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 
@@ -362,4 +364,50 @@ func Test_processMails(t *testing.T) {
 			t.Error("Found unexpected log")
 		}
 	}
+}
+
+func Test_getPrefix(t *testing.T) {
+	type args struct {
+		input string
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "get short prefix",
+			args: args{
+				input: "testValue",
+			},
+			want: "testValue",
+		}, {
+			name: "exactly 100 characters",
+			args: args{
+				input: createString('a', 100),
+			},
+			want: createString('a', 100),
+		}, {
+			name: "over 101 characters",
+			args: args{
+				input: createString('a', 200),
+			},
+			want: fmt.Sprintf("%s...", createString('a', 100)),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getPrefix(tt.args.input); got != tt.want {
+				t.Errorf("getPrefix() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func createString(character rune, length int) string {
+	var sb strings.Builder
+	for i := 0; i < length; i++ {
+		sb.WriteRune(character)
+	}
+	return sb.String()
 }
