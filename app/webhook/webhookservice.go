@@ -84,6 +84,13 @@ func sendRequest(request *http.Request, client *http.Client) error {
 	}
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("status code: %d for request: %s - %s", resp.StatusCode, request.Method, request.URL.String())
+	} else {
+		fmt.Printf(
+			"status code: %d for request: %s - %s\n",
+			resp.StatusCode,
+			request.Method,
+			request.URL.String(),
+		)
 	}
 
 	return nil
