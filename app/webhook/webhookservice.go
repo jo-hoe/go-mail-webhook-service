@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"regexp"
 	"sync"
@@ -79,12 +80,12 @@ func processMail(ctx context.Context, client *http.Client, mailService mail.Mail
 		fmt.Println(err)
 	}
 
-	fmt.Printf("successfully processed mail with subject: '%s' and body: '%s'\n", mail.Subject, getPrefix(mail.Body))
+	fmt.Printf("successfully processed mail with subject: '%s' and body: '%s'\n", mail.Subject, getPrefix(mail.Body, 100))
 }
 
-func getPrefix(input string) string {
-	if len(input) > 100 {
-		return fmt.Sprintf("%s...", input[0:100])
+func getPrefix(input string, prefixLength int) string {
+	if len(input) > prefixLength {
+		return fmt.Sprintf("%s...", input[0:prefixLength])
 	}
 	return input
 }
@@ -94,6 +95,20 @@ func sendRequest(request *http.Request, client *http.Client) error {
 	if err != nil {
 		return err
 	}
+
+	bodyBytes, err := io.ReadAll(request.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %s", err)
+	}
+	bodyString := string(bodyBytes)
+
+	fmt.Printf(
+		"send request: %s to %s with body: %s\n",
+		request.Method,
+		request.URL.String(),
+		getPrefix(bodyString, 128),
+	)
+
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("status code: %d for request: %s - %s", resp.StatusCode, request.Method, request.URL.String())
 	} else {
@@ -101,8 +116,7 @@ func sendRequest(request *http.Request, client *http.Client) error {
 			"status code: %d for request: %s - %s\n",
 			resp.StatusCode,
 			request.Method,
-			request.URL.String(),
-		)
+			request.URL.String())
 	}
 
 	return nil

@@ -369,6 +369,7 @@ func Test_processMails(t *testing.T) {
 func Test_getPrefix(t *testing.T) {
 	type args struct {
 		input string
+		length int
 	}
 	tests := []struct {
 		name string
@@ -379,25 +380,28 @@ func Test_getPrefix(t *testing.T) {
 			name: "get short prefix",
 			args: args{
 				input: "testValue",
+				length: 100,
 			},
 			want: "testValue",
 		}, {
-			name: "exactly 100 characters",
+			name: "exactly on limit",
 			args: args{
 				input: createString('a', 100),
+				length: 100,
 			},
 			want: createString('a', 100),
 		}, {
-			name: "over 101 characters",
+			name: "over limit",
 			args: args{
 				input: createString('a', 200),
+				length: 100,
 			},
 			want: fmt.Sprintf("%s...", createString('a', 100)),
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getPrefix(tt.args.input); got != tt.want {
+			if got := getPrefix(tt.args.input, tt.args.length); got != tt.want {
 				t.Errorf("getPrefix() = %v, want %v", got, tt.want)
 			}
 		})
