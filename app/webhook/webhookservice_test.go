@@ -96,6 +96,22 @@ func Test_selectFromBody(t *testing.T) {
 			wantResult: map[string]string{
 				"testKey": "testValue",
 			},
+		},{
+			name: "convert link to map",
+			args: args{
+				mail: mail.Mail{
+					Body: "https://youtu.be/DucriSA8ukw?feature=shared\r",
+				},
+				selectors: []config.BodySelectorRegex{
+					{
+						Regex: "https?://(www.)?[-a-zA-Z0-9@:%._+~#=]{1,256}.[a-zA-Z0-9()]{1,6}([-a-zA-Z0-9()@:%_+.~#?&//=]*)",
+						Name:  "url",
+					},
+				},
+			},
+			wantResult: map[string]string{
+				"url": "https://youtu.be/DucriSA8ukw?feature=shared",
+			},
 		},
 	}
 	for _, tt := range tests {
