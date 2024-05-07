@@ -79,7 +79,14 @@ func processMail(ctx context.Context, client *http.Client, mailService mail.Mail
 		fmt.Println(err)
 	}
 
-	fmt.Printf("successfully processed mail with subject: %s and body: %s\n", mail.Subject, mail.Body)
+	fmt.Printf("successfully processed mail with subject: '%s' and body: '%s'\n", mail.Subject, getPrefix(mail.Body))
+}
+
+func getPrefix(input string) string {
+	if len(input) > 100 {
+		return fmt.Sprintf("%s...", input[0:100])
+	}
+	return input
 }
 
 func sendRequest(request *http.Request, client *http.Client) error {
