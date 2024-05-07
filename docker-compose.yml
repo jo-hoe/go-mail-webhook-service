@@ -1,0 +1,6 @@
+services:
+  mail-webhook-service:
+    build: .
+    image: mail-webhook-service
+    volumes:
+      - "./config/:/go/config"

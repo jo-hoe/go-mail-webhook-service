@@ -14,7 +14,7 @@ import (
 func main() {
 	args := os.Args
 	if len(args) < 2 {
-		println("provide path to client credentials in quotes")
+		fmt.Printf("provide path to client credentials in quotes")
 		return
 	}
 	generateToken(args[1])
@@ -23,18 +23,18 @@ func main() {
 func generateToken(pathToClientCredentials string) {
 	config, err := mail.GetGmailConfig(pathToClientCredentials)
 	if err != nil {
-		println(err.Error())
+		fmt.Printf("%v", err.Error())
 		return
 	}
 
 	token, err := getTokenFromWeb(context.Background(), config)
 	if err != nil {
-		println(err.Error())
+		fmt.Printf("%v", err.Error())
 		return
 	}
 	err = saveToken(path.Join(pathToClientCredentials, mail.TokenFileName), token)
 	if err != nil {
-		println(err.Error())
+		fmt.Printf("%v", err.Error())
 		return
 	}
 }
