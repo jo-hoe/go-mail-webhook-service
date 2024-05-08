@@ -42,11 +42,11 @@ func generateToken(pathToClientCredentials string) {
 // Request a token from the web, then returns the retrieved token.
 func getTokenFromWeb(context context.Context, config *oauth2.Config) (*oauth2.Token, error) {
 	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
-	fmt.Printf("Go to the following link in your browser then type the "+
+	fmt.Printf("go to the following link in your browser then type the "+
 		"authorization code: \n%v\n", authURL)
 
 	var authCode string
-	fmt.Printf("Enter the authorization code: ")
+	fmt.Printf("enter the authorization code: ")
 	if _, err := fmt.Scan(&authCode); err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func getTokenFromWeb(context context.Context, config *oauth2.Config) (*oauth2.To
 
 // Saves a token to a file path.
 func saveToken(path string, token *oauth2.Token) error {
-	fmt.Printf("Saving credential file to: %s\n", path)
+	fmt.Printf("saving credential file to: %s\n", path)
 	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return err
