@@ -302,17 +302,38 @@ func Test_processMail(t *testing.T) {
 				},
 				wantSuccessLog: true,
 			},
+		}, {
+			name: "process mail without body selector",
+			args: args{
+				ctx: context.Background(),
+				client: &http.Client{
+					Transport: &http.Transport{},
+				},
+				mailService: &mail.MailClientServiceMock{},
+				mail: mail.Mail{
+					Subject: "testSubject",
+					Body:    "testValue",
+				},
+				config: &config.Config{
+					SubjectSelectorRegex:  "testSubject",
+					BodySelectorRegexList: make([]config.BodySelectorRegex, 0),
+					Callback: config.Callback{
+						Url:    "http://example.com",
+						Method: "POST",
+					},
+				},
+				wantSuccessLog: true,
+			},
 		},
 	}
 	for _, tt := range tests {
 		var wg sync.WaitGroup
 		wg.Add(1)
-		t.Run(tt.name, func(t *testing.T) {
-			processMail(tt.args.ctx, tt.args.client, tt.args.mailService, tt.args.mail, tt.args.config, &wg)
-		})
+		processMail(tt.args.ctx, tt.args.client, tt.args.mailService, tt.args.mail, tt.args.config, &wg)
+		wg.Wait()
 		bufferString := logBuffer.String()
 		if tt.args.wantSuccessLog && !strings.Contains(bufferString, "successfully processed mail") {
-			t.Error("Did not find expected log")
+			t.Errorf("Did not find expected log, log was'%s'", bufferString)
 		}
 	}
 }

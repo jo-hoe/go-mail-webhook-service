@@ -35,6 +35,11 @@ func createWebhook(config *config.Config) {
 	for {
 		processWebhook(config)
 		wait(config.IntervalBetweenExecutions)
+
+		if config.RunOnce {
+			log.Print("'runOnce' is set to true. exiting")
+			break
+		}
 	}
 }
 
@@ -101,7 +106,7 @@ func processMail(ctx context.Context, client *http.Client, mailService mail.Mail
 		return
 	}
 
-	for range config.Callback.Retries {
+	for range config.Callback.Retries + 1 {
 		err = sendRequest(request, client)
 		if err == nil {
 			break
