@@ -5,8 +5,29 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/jo-hoe/go-mail-webhook-service)](https://goreportcard.com/report/github.com/jo-hoe/go-mail-webhook-service)
 [![Coverage Status](https://coveralls.io/repos/github/jo-hoe/go-mail-webhook-service/badge.svg?branch=main)](https://coveralls.io/github/jo-hoe/go-mail-webhook-service?branch=main)
 
-Still work in progress.
 Webhook allowing to pull mails and send requests to an callback url.
+
+## Prerequisites
+
+- [Docker](https://docs.docker.com/engine/install/)
+
+### Mail Client
+
+Currently the only supported mail client is GMail.
+You will need the client credentials file and set it to name `client_secret.json` and `request.token` file.
+An example on how you can create it is described [here](cli\gmail\README.md).
+
+### Optional Components
+
+Use `make` to run the project. Make is typically installed out of the box on Linux and Mac.
+
+If you do not have it and run on Windows, you can directly install it from [gnuwin32](https://gnuwin32.sourceforge.net/packages/make.htm) or via `winget`
+
+```PowerShell
+winget install GnuWin32.Make
+```
+
+If you want to run the project without Docker, you can install [Golang](https://go.dev/doc/install)
 
 ## Configuration Example
 
@@ -29,7 +50,20 @@ Webhook allowing to pull mails and send requests to an callback url.
     retries: 0 # number of retries for the callback, default is 0
 ```
 
-## Related Links
+## How to use
 
-- [create gmail credentials](https://developers.google.com/gmail/api/auth/web-server#create_a_client_id_and_client_secret)
-- [gmail usage limits](https://developers.google.com/gmail/api/reference/quota)
+After you have fulfilled the prerequisites you can go ahead and start the service.
+
+### Start
+
+Either via docker compose
+
+```bash
+docker compose up
+```
+
+or use `make`
+
+```bash
+make
+```

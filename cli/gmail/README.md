@@ -1,6 +1,11 @@
 # GMail API Token Generation
 
-The current implementation relies on an OAuth 
+The current implementation relies on an OAuth.
+
+## Prerequisites
+
+- install [Golang](https://go.dev/doc/install)
+- a GMail account
 
 ## Creation of client secret
 
