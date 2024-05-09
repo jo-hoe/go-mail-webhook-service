@@ -74,15 +74,15 @@ func wait(durationString string) {
 }
 
 func processMails(ctx context.Context, client *http.Client, config *config.Config, mailService mail.MailClientService) {
+	log.Print("start reading mails\n")
 	allMails, err := mailService.GetAllUnreadMail(ctx)
 	if err != nil {
 		log.Printf("read all mails - error: %s", err)
 		return
 	}
 	filteredMails := filterMailsBySubject(allMails, config.SubjectSelectorRegex)
-	if len(filteredMails) != 0 {
-		log.Printf("number of mails that fit to subject selector '%s' is: %d\n", config.SubjectSelectorRegex, len(filteredMails))
-	}
+	log.Printf("number of mails that fit to subject selector '%s' is: %d\n", config.SubjectSelectorRegex, len(filteredMails))
+
 	var wg sync.WaitGroup
 	for _, mail := range filteredMails {
 		wg.Add(1)
