@@ -99,6 +99,20 @@ func TestNewConfig(t *testing.T) {
 				},
 			},
 			wantErr: false,
+		}, {
+			name: "test unsupported http method",
+			args: args{
+				yamlBytes: []byte(`
+- mailClientConfig: 
+    mail: "example@gmail.com"
+    credentialsPath: "/path/to/client_secrets/file/"
+  subjectSelectorRegex: ".*"
+  callback:
+    url: "https://example.com/callback"
+    method: "invalid"`),
+			},
+			want: nil,
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
