@@ -28,9 +28,12 @@ func TestNewConfig(t *testing.T) {
     regex: "[a-z]{0,6}"
   - name: "test2"
     regex: ".*"
+  intervalBetweenExecutions: 20s
   callback:
     url: "https://example.com/callback"
-    method: "POST"`),
+    method: "POST"
+    timeout: 8s
+    retries: 3`),
 			},
 			want: &[]Config{
 				{
@@ -38,6 +41,7 @@ func TestNewConfig(t *testing.T) {
 						Mail:            "example@gmail.com",
 						CredentialsPath: "/path/to/client_secrets/file/",
 					},
+					IntervalBetweenExecutions: "20s",
 					SubjectSelectorRegex: ".*",
 					BodySelectorRegexList: []BodySelectorRegex{
 						{
@@ -52,6 +56,8 @@ func TestNewConfig(t *testing.T) {
 					Callback: Callback{
 						Url:    "https://example.com/callback",
 						Method: "POST",
+						Timeout: "8s",
+						Retries: 3,
 					},
 				},
 			},

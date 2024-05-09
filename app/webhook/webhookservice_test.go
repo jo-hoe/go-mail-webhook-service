@@ -96,7 +96,7 @@ func Test_selectFromBody(t *testing.T) {
 			wantResult: map[string]string{
 				"testKey": "testValue",
 			},
-		},{
+		}, {
 			name: "convert link to map",
 			args: args{
 				mail: mail.Mail{
@@ -333,7 +333,6 @@ func Test_processMails(t *testing.T) {
 		client      *http.Client
 		config      *config.Config
 		mailService mail.MailClientService
-		wantErrLog  bool
 	}
 	tests := []struct {
 		name string
@@ -364,7 +363,6 @@ func Test_processMails(t *testing.T) {
 						},
 					},
 				},
-				wantErrLog: false,
 			},
 		},
 	}
@@ -373,18 +371,20 @@ func Test_processMails(t *testing.T) {
 			processMails(tt.args.ctx, tt.args.client, tt.args.config, tt.args.mailService)
 		})
 		bufferString := logBuffer.String()
-		if tt.args.wantErrLog && len(bufferString) == 0 {
-			t.Error("Did not find expected log")
+		numberOfUnreadMails, err := tt.args.mailService.GetAllUnreadMail(context.Background())
+		if err != nil {
+			t.Error(err)
 		}
-		if !tt.args.wantErrLog && len(bufferString) > 0 {
-			t.Error("Found unexpected log")
+		expectedLog := fmt.Sprintf("number of mails that fit to subject selector '%s' is: %d", tt.args.config.SubjectSelectorRegex, len(numberOfUnreadMails))
+		if !strings.Contains(bufferString, expectedLog) {
+			t.Errorf("Did not find expected log '%s'", expectedLog)
 		}
 	}
 }
 
 func Test_getPrefix(t *testing.T) {
 	type args struct {
-		input string
+		input  string
 		length int
 	}
 	tests := []struct {
@@ -395,21 +395,21 @@ func Test_getPrefix(t *testing.T) {
 		{
 			name: "get short prefix",
 			args: args{
-				input: "testValue",
+				input:  "testValue",
 				length: 100,
 			},
 			want: "testValue",
 		}, {
 			name: "exactly on limit",
 			args: args{
-				input: createString('a', 100),
+				input:  createString('a', 100),
 				length: 100,
 			},
 			want: createString('a', 100),
 		}, {
 			name: "over limit",
 			args: args{
-				input: createString('a', 200),
+				input:  createString('a', 200),
 				length: 100,
 			},
 			want: fmt.Sprintf("%s...", createString('a', 100)),

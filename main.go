@@ -1,9 +1,7 @@
 package main
 
 import (
-	"context"
 	"log"
-	"net/http"
 	"os"
 	"path"
 
@@ -27,5 +25,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	webhook.NewWebhookService(configs).Run(context.Background(), http.DefaultClient)
+	webhook.NewWebhookService(configs).Run()
+
+	// wait until program is terminated
+	<-make(chan bool)
 }
