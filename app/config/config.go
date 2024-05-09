@@ -2,11 +2,23 @@ package config
 
 import (
 	"fmt"
+	"net/http"
 	"regexp"
 	"time"
 
 	"gopkg.in/yaml.v2"
 )
+
+var supportHttpMethods = map[string]bool{
+	http.MethodGet:     true,
+	http.MethodHead:    true,
+	http.MethodPost:    true,
+	http.MethodPut:     true,
+	http.MethodPatch:   true,
+	http.MethodDelete:  true,
+	http.MethodOptions: true,
+	http.MethodTrace:   true,
+}
 
 type Config struct {
 	MailClientConfig          MailClientConfig    `yaml:"mailClientConfig"`
@@ -96,8 +108,14 @@ func validateCallback(callback *Callback) error {
 	if callback.Url == "" {
 		return fmt.Errorf("callback.url is empty")
 	}
-	if callback.Method != "POST" && callback.Method != "GET" && callback.Method != "PUT" && callback.Method != "DELETE" {
-		return fmt.Errorf("callback.method not supported: %s", callback.Method)
+	if _, ok := supportHttpMethods[callback.Method]; !ok {
+		allSupportHttpMethods := make([]string, len(supportHttpMethods))
+		i := 0
+		for method := range supportHttpMethods {
+			allSupportHttpMethods[i] = method
+			i++
+		}
+		return fmt.Errorf("callback.method not supported: %s, supported methods: %v", callback.Method, allSupportHttpMethods)
 	}
 
 	if _, err := time.ParseDuration(callback.Timeout); err != nil {
