@@ -393,7 +393,7 @@ func Test_processMails(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
-		expectedLog := fmt.Sprintf("number of mails that fit to subject selector '%s' is: %d", tt.args.config.SubjectSelectorRegex, len(numberOfUnreadMails))
+		expectedLog := fmt.Sprintf("number of unread mails that match subject selector '%s' is: %d", tt.args.config.SubjectSelectorRegex, len(numberOfUnreadMails))
 		if !strings.Contains(bufferString, expectedLog) {
 			t.Errorf("Did not find expected log '%s'", expectedLog)
 		}

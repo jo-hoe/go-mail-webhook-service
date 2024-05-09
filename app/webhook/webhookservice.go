@@ -86,7 +86,7 @@ func processMails(ctx context.Context, client *http.Client, config *config.Confi
 		return
 	}
 	filteredMails := filterMailsBySubject(allMails, config.SubjectSelectorRegex)
-	log.Printf("number of mails that fit to subject selector '%s' is: %d\n", config.SubjectSelectorRegex, len(filteredMails))
+	log.Printf("number of unread mails that match subject selector '%s' is: %d\n", config.SubjectSelectorRegex, len(filteredMails))
 
 	var wg sync.WaitGroup
 	for _, mail := range filteredMails {
