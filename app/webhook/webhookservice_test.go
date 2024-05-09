@@ -264,12 +264,12 @@ func Test_processMail(t *testing.T) {
 	t.Log(logBuffer.String())
 
 	type args struct {
-		ctx         context.Context
-		client      *http.Client
-		mailService mail.MailClientService
-		mail        mail.Mail
-		config      *config.Config
-		wantErrLog  bool
+		ctx            context.Context
+		client         *http.Client
+		mailService    mail.MailClientService
+		mail           mail.Mail
+		config         *config.Config
+		wantSuccessLog bool
 	}
 	tests := []struct {
 		name string
@@ -300,7 +300,7 @@ func Test_processMail(t *testing.T) {
 						Method: "POST",
 					},
 				},
-				wantErrLog: false,
+				wantSuccessLog: true,
 			},
 		},
 	}
@@ -311,11 +311,8 @@ func Test_processMail(t *testing.T) {
 			processMail(tt.args.ctx, tt.args.client, tt.args.mailService, tt.args.mail, tt.args.config, &wg)
 		})
 		bufferString := logBuffer.String()
-		if tt.args.wantErrLog && len(bufferString) == 0 {
+		if tt.args.wantSuccessLog && !strings.Contains(bufferString, "successfully processed mail") {
 			t.Error("Did not find expected log")
-		}
-		if !tt.args.wantErrLog && len(bufferString) > 0 {
-			t.Error("Found unexpected log")
 		}
 	}
 }
