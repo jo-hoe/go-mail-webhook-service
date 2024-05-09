@@ -7,9 +7,15 @@ IMAGE_TAG := mws
 
 .DEFAULT_GOAL := start
 
+DOCKER_COMPOSE_CMD := docker compose up
+
 .PHONY: start
-start: ## rebuild and start via docker
-	@docker compose up --build
+start: ## start via docker
+	@${DOCKER_COMPOSE_CMD}
+
+.PHONY: start-rebuild
+start-rebuild: ## rebuild and start via docker
+	@${DOCKER_COMPOSE_CMD} --build
 
 .PHONY: dev-build-container
 dev-build-container: ## builds container
