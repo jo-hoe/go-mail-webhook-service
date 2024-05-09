@@ -42,7 +42,7 @@ type Callback struct {
 	Url     string `yaml:"url"`
 	Method  string `yaml:"method"`
 	Timeout string `yaml:"timeout"` // default is "24s"
-	Retries int    `yaml:"retries"` // default is "3s"
+	Retries int    `yaml:"retries"` // default is "0"
 }
 
 func NewConfigsFromYaml(yamlBytes []byte) (*[]Config, error) {
