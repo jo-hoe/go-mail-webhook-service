@@ -5,6 +5,8 @@ ROOT_DIR := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
 IMAGE_NAME := go-mail-webhook-service
 IMAGE_TAG := mws
 
+.DEFAULT_GOAL := start
+
 .PHONY: start
 start: ## rebuild and start via docker
 	@docker compose up --build
