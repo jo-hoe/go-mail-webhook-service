@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path"
 
@@ -14,7 +15,7 @@ import (
 func main() {
 	args := os.Args
 	if len(args) < 2 {
-		fmt.Printf("provide path to client credentials in quotes")
+		log.Printf("provide path to client credentials in quotes")
 		return
 	}
 	generateToken(args[1])
@@ -23,18 +24,18 @@ func main() {
 func generateToken(pathToClientCredentials string) {
 	config, err := mail.GetGmailConfig(pathToClientCredentials)
 	if err != nil {
-		fmt.Printf("%v", err.Error())
+		log.Printf("%v", err.Error())
 		return
 	}
 
 	token, err := getTokenFromWeb(context.Background(), config)
 	if err != nil {
-		fmt.Printf("%v", err.Error())
+		log.Printf("%v", err.Error())
 		return
 	}
 	err = saveToken(path.Join(pathToClientCredentials, mail.TokenFileName), token)
 	if err != nil {
-		fmt.Printf("%v", err.Error())
+		log.Printf("%v", err.Error())
 		return
 	}
 }
@@ -42,11 +43,11 @@ func generateToken(pathToClientCredentials string) {
 // Request a token from the web, then returns the retrieved token.
 func getTokenFromWeb(context context.Context, config *oauth2.Config) (*oauth2.Token, error) {
 	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
-	fmt.Printf("go to the following link in your browser then type the "+
+	log.Printf("go to the following link in your browser then type the "+
 		"authorization code: \n%v\n", authURL)
 
 	var authCode string
-	fmt.Printf("enter the authorization code: ")
+	log.Printf("enter the authorization code: ")
 	if _, err := fmt.Scan(&authCode); err != nil {
 		return nil, err
 	}
@@ -60,7 +61,7 @@ func getTokenFromWeb(context context.Context, config *oauth2.Config) (*oauth2.To
 
 // Saves a token to a file path.
 func saveToken(path string, token *oauth2.Token) error {
-	fmt.Printf("saving credential file to: %s\n", path)
+	log.Printf("saving credential file to: %s\n", path)
 	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return err

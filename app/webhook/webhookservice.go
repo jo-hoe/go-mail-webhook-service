@@ -5,9 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"regexp"
 	"sync"
+	"time"
 
 	"github.com/jo-hoe/go-mail-webhook-service/app/config"
 	"github.com/jo-hoe/go-mail-webhook-service/app/mail"
@@ -23,34 +25,63 @@ func NewWebhookService(configs *[]config.Config) *WebhookService {
 	}
 }
 
-func (webhookService *WebhookService) Run(ctx context.Context, client *http.Client) {
-	var wg sync.WaitGroup
+func (webhookService *WebhookService) Run() {
 	for _, config := range *webhookService.configs {
-		wg.Add(1)
-		go createWebhook(ctx, client, &config, &wg)
+		go createWebhook(&config)
 	}
-	wg.Wait()
 }
 
-func createWebhook(ctx context.Context, client *http.Client, config *config.Config, wg *sync.WaitGroup) {
-	defer wg.Done()
+func createWebhook(config *config.Config) {
+	for {
+		processWebhook(config)
+		wait(config.IntervalBetweenExecutions)
+	}
+}
+
+func processWebhook(config *config.Config) {
 	mailService, err := mail.NewMailClientService(&config.MailClientConfig)
 	if err != nil {
-		fmt.Println(err)
+		log.Printf("could not create mail service - error: %s", err)
+	}
+
+	client, err := createHttpClient(config)
+	if err != nil {
+		log.Printf("could not create http client - error: %s", err)
+	}
+
+	processMails(context.Background(), client, config, mailService)
+}
+
+func createHttpClient(config *config.Config) (client *http.Client, err error) {
+	timeout, err := time.ParseDuration(config.Callback.Timeout)
+	if err != nil {
+		return nil, err
+	}
+	client = &http.Client{
+		Timeout: timeout,
+	}
+
+	return client, nil
+}
+
+func wait(durationString string) {
+	duration, err := time.ParseDuration(durationString)
+	if err != nil {
+		log.Printf("could parse time - error: %s", err)
 		return
 	}
-	processMails(ctx, client, config, mailService)
+	time.Sleep(duration)
 }
 
 func processMails(ctx context.Context, client *http.Client, config *config.Config, mailService mail.MailClientService) {
 	allMails, err := mailService.GetAllUnreadMail(ctx)
 	if err != nil {
-		fmt.Println(err)
+		log.Printf("read all mails - error: %s", err)
 		return
 	}
 	filteredMails := filterMailsBySubject(allMails, config.SubjectSelectorRegex)
 	if len(filteredMails) != 0 {
-		fmt.Printf("number of mails that fit to subject selector '%s' is: %d\n", config.SubjectSelectorRegex, len(filteredMails))
+		log.Printf("number of mails that fit to subject selector '%s' is: %d\n", config.SubjectSelectorRegex, len(filteredMails))
 	}
 	var wg sync.WaitGroup
 	for _, mail := range filteredMails {
@@ -66,20 +97,24 @@ func processMail(ctx context.Context, client *http.Client, mailService mail.Mail
 
 	request, err := constructRequest(mail, config)
 	if err != nil {
-		fmt.Println(err)
+		log.Printf("could not create request - error: %s", err)
 		return
-	}
-	err = sendRequest(request, client)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	err = mailService.MarkMailAsRead(ctx, mail)
-	if err != nil {
-		fmt.Println(err)
 	}
 
-	fmt.Printf("successfully processed mail with subject: '%s' and body: '%s'\n", mail.Subject, getPrefix(mail.Body, 100))
+	for range config.Callback.Retries {
+		err = sendRequest(request, client)
+		if err == nil {
+			break
+		}
+		log.Printf("could not send request - error: %s", err)
+	}
+
+	err = mailService.MarkMailAsRead(ctx, mail)
+	if err != nil {
+		log.Printf("could not mark mails as read - error: %s", err)
+	}
+
+	log.Printf("successfully processed mail with subject: '%s' and body: '%s'\n", mail.Subject, getPrefix(mail.Body, 100))
 }
 
 func getPrefix(input string, prefixLength int) string {
@@ -98,7 +133,7 @@ func sendRequest(request *http.Request, client *http.Client) error {
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("status code: %d for request: %s - %s", resp.StatusCode, request.Method, request.URL.String())
 	} else {
-		fmt.Printf(
+		log.Printf(
 			"status code: %d for request: %s - %s\n",
 			resp.StatusCode,
 			request.Method,
@@ -130,7 +165,7 @@ func getRequestBody(mail mail.Mail, selectors []config.BodySelectorRegex) (resul
 
 	result, err := json.Marshal(data)
 	if err != nil {
-		fmt.Println(err)
+		log.Printf("could not marshal data - error: %s", err)
 		result = make([]byte, 0)
 	}
 
@@ -147,7 +182,7 @@ func selectFromBody(mail mail.Mail, selectors []config.BodySelectorRegex) (resul
 	for _, bodySelectorRegex := range selectors {
 		regex, err := regexp.Compile(bodySelectorRegex.Regex)
 		if err != nil {
-			fmt.Printf("regex: %s cannot be compiled. error: %s", bodySelectorRegex.Regex, err)
+			log.Printf("regex: %s cannot be compiled. error: %s", bodySelectorRegex.Regex, err)
 			continue
 		}
 		result[bodySelectorRegex.Name] = regex.FindString(mail.Body)
@@ -162,7 +197,7 @@ func filterMailsBySubject(mails []mail.Mail, regex string) []mail.Mail {
 	for _, mail := range mails {
 		match, err := regexp.MatchString(regex, mail.Subject)
 		if err != nil {
-			fmt.Printf("regex: %s cannot be compiled. error: %s", regex, err)
+			log.Printf("regex: %s cannot be compiled. error: %s", regex, err)
 			continue
 		}
 		if match {
