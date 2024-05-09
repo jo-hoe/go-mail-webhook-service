@@ -16,6 +16,7 @@ Webhook allowing to pull mails and send requests to an callback url.
 Currently the only supported mail client is GMail.
 You will need the client credentials file and set it to name `client_secret.json` and `request.token` file.
 An example on how you can create it is described [here](cli\gmail\README.md).
+Once created use the [configuration file](#configuration-example) to set the directory where both files are stored.
 
 ### Optional Components
 
@@ -31,10 +32,13 @@ If you want to run the project without Docker, you can install [Golang](https://
 
 ## Configuration Example
 
+Create a file with name `config.yaml` in directory `config`.
+An example of the configuration file is described below.
+
 ```yaml
 - mailClientConfig: 
     mail: "example@gmail.com" # mail address to be checked
-    credentialsPath: "/path/to/client_secrets/file/" # location of the credentials files for the mail client
+    credentialsPath: "/path/to/client_secrets/file/" # location of the credentials files for the mail client, can also be a location relative to the current directory
   runOnce: false # if set to true, the service will run once and exit, default is false
   intervalBetweenExecutions: 0s # interval between executions of the service, default is 0 seconds
   subjectSelectorRegex: ".*" # regex to match the subject of the mail
