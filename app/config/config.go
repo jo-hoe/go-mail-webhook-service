@@ -26,6 +26,7 @@ type Config struct {
 	BodySelectorRegexList     []BodySelectorRegex `yaml:"bodySelectorRegexList"`
 	Callback                  Callback            `yaml:"callback"`
 	IntervalBetweenExecutions string              `yaml:"intervalBetweenExecutions"` // default is "0s"
+	RunOnce                   bool                `yaml:"runOnce"`
 }
 
 type MailClientConfig struct {

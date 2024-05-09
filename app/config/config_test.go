@@ -23,6 +23,7 @@ func TestNewConfig(t *testing.T) {
     mail: "example@gmail.com"
     credentialsPath: "/path/to/client_secrets/file/"
   subjectSelectorRegex: ".*"
+  runOnce: true
   bodySelectorRegexList:
   - name: "test"
     regex: "[a-z]{0,6}"
@@ -42,6 +43,7 @@ func TestNewConfig(t *testing.T) {
 						CredentialsPath: "/path/to/client_secrets/file/",
 					},
 					IntervalBetweenExecutions: "20s",
+					RunOnce:                   true,
 					SubjectSelectorRegex:      ".*",
 					BodySelectorRegexList: []BodySelectorRegex{
 						{
@@ -88,6 +90,7 @@ func TestNewConfig(t *testing.T) {
 						CredentialsPath: "/path/to/client_secrets/file/",
 					},
 					IntervalBetweenExecutions: "0s",
+					RunOnce:                   false,
 					SubjectSelectorRegex:      ".*",
 					BodySelectorRegexList:     nil,
 					Callback: Callback{
@@ -111,7 +114,7 @@ func TestNewConfig(t *testing.T) {
     url: "https://example.com/callback"
     method: "invalid"`),
 			},
-			want: nil,
+			want:    nil,
 			wantErr: true,
 		},
 	}
