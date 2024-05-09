@@ -13,7 +13,7 @@ type Config struct {
 	SubjectSelectorRegex      string              `yaml:"subjectSelectorRegex"`
 	BodySelectorRegexList     []BodySelectorRegex `yaml:"bodySelectorRegexList"`
 	Callback                  Callback            `yaml:"callback"`
-	IntervalBetweenExecutions string              `yaml:"intervalBetweenExecutions"`
+	IntervalBetweenExecutions string              `yaml:"intervalBetweenExecutions"` // default is "0s"
 }
 
 type MailClientConfig struct {
@@ -29,8 +29,8 @@ type BodySelectorRegex struct {
 type Callback struct {
 	Url     string `yaml:"url"`
 	Method  string `yaml:"method"`
-	Timeout string `yaml:"timeout"`
-	Retries int    `yaml:"retries"`
+	Timeout string `yaml:"timeout"` // default is "24s"
+	Retries int    `yaml:"retries"` // default is "3s"
 }
 
 func NewConfigsFromYaml(yamlBytes []byte) (*[]Config, error) {
@@ -39,10 +39,25 @@ func NewConfigsFromYaml(yamlBytes []byte) (*[]Config, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	configs = *setDefaults(&configs)
 	if err := validateConfigs(&configs); err != nil {
 		return nil, err
 	}
 	return &configs, nil
+}
+
+func setDefaults(input *[]Config) (output *[]Config) {
+	output = input
+	for i, config := range *output {
+		if config.IntervalBetweenExecutions == "" {
+			(*output)[i].IntervalBetweenExecutions = "0s"
+		}
+		if config.Callback.Timeout == "" {
+			(*output)[i].Callback.Timeout = "24s"
+		}
+	}
+	return output
 }
 
 func validateConfigs(configs *[]Config) error {
@@ -92,6 +107,6 @@ func validateCallback(callback *Callback) error {
 	if callback.Retries < 0 {
 		return fmt.Errorf("callback.retries must be greater than or equal to 0")
 	}
-	
+
 	return nil
 }

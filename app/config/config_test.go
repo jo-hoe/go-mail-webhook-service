@@ -33,7 +33,7 @@ func TestNewConfig(t *testing.T) {
     url: "https://example.com/callback"
     method: "POST"
     timeout: 8s
-    retries: 3`),
+    retries: 10`),
 			},
 			want: &[]Config{
 				{
@@ -42,7 +42,7 @@ func TestNewConfig(t *testing.T) {
 						CredentialsPath: "/path/to/client_secrets/file/",
 					},
 					IntervalBetweenExecutions: "20s",
-					SubjectSelectorRegex: ".*",
+					SubjectSelectorRegex:      ".*",
 					BodySelectorRegexList: []BodySelectorRegex{
 						{
 							Name:  "test",
@@ -54,10 +54,10 @@ func TestNewConfig(t *testing.T) {
 						},
 					},
 					Callback: Callback{
-						Url:    "https://example.com/callback",
-						Method: "POST",
+						Url:     "https://example.com/callback",
+						Method:  "POST",
 						Timeout: "8s",
-						Retries: 3,
+						Retries: 10,
 					},
 				},
 			},
@@ -69,6 +69,36 @@ func TestNewConfig(t *testing.T) {
 			},
 			want:    nil,
 			wantErr: true,
+		}, {
+			name: "test defaults",
+			args: args{
+				yamlBytes: []byte(`
+- mailClientConfig: 
+    mail: "example@gmail.com"
+    credentialsPath: "/path/to/client_secrets/file/"
+  subjectSelectorRegex: ".*"
+  callback:
+    url: "https://example.com/callback"
+    method: "POST"`),
+			},
+			want: &[]Config{
+				{
+					MailClientConfig: MailClientConfig{
+						Mail:            "example@gmail.com",
+						CredentialsPath: "/path/to/client_secrets/file/",
+					},
+					IntervalBetweenExecutions: "0s",
+					SubjectSelectorRegex:      ".*",
+					BodySelectorRegexList:     nil,
+					Callback: Callback{
+						Url:     "https://example.com/callback",
+						Method:  "POST",
+						Timeout: "24s",
+						Retries: 0,
+					},
+				},
+			},
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
