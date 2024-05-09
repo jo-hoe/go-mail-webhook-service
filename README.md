@@ -20,12 +20,12 @@ Webhook allowing to pull mails and send requests to an callback url.
     regex: "[a-z]{0,6}"
   - name: "test2"
     regex: ".*"
-  intervalBetweenExecutions: 20s
+  intervalBetweenExecutions: 0s
   callback:
     url: "https://example.com/callback"
     method: "POST"
-    timeout: 8s
-    retries: 3
+    timeout: 24s
+    retries: 0
 ```
 
 ## Related Links
