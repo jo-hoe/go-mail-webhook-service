@@ -3,13 +3,14 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"path"
 
 	"github.com/jo-hoe/go-mail-webhook-service/app/mail"
 	"golang.org/x/oauth2"
+	"google.golang.org/api/gmail/v1"
 )
 
 func main() {
@@ -22,41 +23,40 @@ func main() {
 }
 
 func generateToken(pathToClientCredentials string) {
-	config, err := mail.GetGmailConfig(pathToClientCredentials)
+	config, err := mail.GetGmailConfig(pathToClientCredentials, gmail.GmailModifyScope)
 	if err != nil {
 		log.Printf("%v", err.Error())
 		return
 	}
 
-	token, err := getTokenFromWeb(context.Background(), config)
-	if err != nil {
-		log.Printf("%v", err.Error())
-		return
-	}
-	err = saveToken(path.Join(pathToClientCredentials, mail.TokenFileName), token)
-	if err != nil {
-		log.Printf("%v", err.Error())
-		return
-	}
+	getTokenFromWeb(context.Background(), pathToClientCredentials, config)
 }
 
 // Request a token from the web, then returns the retrieved token.
-func getTokenFromWeb(context context.Context, config *oauth2.Config) (*oauth2.Token, error) {
+func getTokenFromWeb(context context.Context, pathToClientCredentials string, config *oauth2.Config) {
 	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
 	log.Printf("go to the following link in your browser then type the "+
 		"authorization code: \n%v\n", authURL)
 
-	var authCode string
-	log.Printf("enter the authorization code: ")
-	if _, err := fmt.Scan(&authCode); err != nil {
-		return nil, err
-	}
+	http.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
+		authCode := req.URL.Query().Get("code")
+		if authCode == "" {
+			log.Printf("authCode was empty")
+			return
+		}
+		token, err := config.Exchange(context, authCode)
+		if err != nil {
+			log.Printf("%v", err.Error())
+			return
+		}
 
-	token, err := config.Exchange(context, authCode)
-	if err != nil {
-		return nil, err
-	}
-	return token, nil
+		err = saveToken(path.Join(pathToClientCredentials, mail.TokenFileName), token)
+		if err != nil {
+			log.Printf("%v", err.Error())
+			return
+		}
+	})
+	http.ListenAndServe(":8080", nil)
 }
 
 // Saves a token to a file path.

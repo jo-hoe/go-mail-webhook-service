@@ -20,16 +20,6 @@ The current implementation relies on an OAuth.
    1. Click "Credentials" on the left side
    1. Create a new OAuth credential with type "Web application"
 
-## Example Usage
-
-```bash
-main "directory/of/client_credentials/json/file"
-```
-
-After a successful start you need to extract the auth code and enter it into the CLI.
-
-```bash
-http://localhost:8080/?state=state-token&code=<extract this>&scope=https://www.googleapis.com/auth/gmail.modify
-```
+## Notes
 
 The code will then create a file called `request.token`, which you put in the same directory as the client_credentials.json file.
