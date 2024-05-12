@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"time"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -147,6 +148,20 @@ func (service *GmailService) getClient(context context.Context, config *oauth2.C
 	if err != nil {
 		return nil, err
 	}
+	
+	// check if token is already expired or about to expire (within minutes)
+	if token.Expiry.Before(time.Now().Add(4 * time.Minute)) {
+		// refresh token
+		token, err = config.TokenSource(context, token).Token()
+		if err != nil {
+			return nil, err
+		}
+		err = os.WriteFile(tokenFilePath, []byte(token.AccessToken), 0600)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return config.Client(context, token), nil
 }
 
