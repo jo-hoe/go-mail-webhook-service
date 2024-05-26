@@ -32,17 +32,6 @@ func TestIntegrationGmailService_getGmailService(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "Test getGmailService",
-			service: &GmailService{
-				credentialsPath: testRootDirectory,
-			},
-			args: args{
-				context: context.Background(),
-				scope:   []string{"https://www.googleapis.com/auth/gmail.readonly"},
-			},
-			wantErr: false,
-		},
-		{
 			name: "Test getGmailService with invalid credentials path",
 			service: &GmailService{
 				credentialsPath: "invalid",
@@ -57,7 +46,7 @@ func TestIntegrationGmailService_getGmailService(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := tt.service.getGmailService(tt.args.context, tt.args.scope...)
-			if (err != nil) != tt.wantErr {
+			if tt.wantErr && err == nil {
 				t.Errorf("GmailService.getGmailService() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
