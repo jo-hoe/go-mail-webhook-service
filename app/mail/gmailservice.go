@@ -42,10 +42,10 @@ func (service *GmailService) GetAllUnreadMail(context context.Context) ([]Mail, 
 	}
 
 	// Since the client config contains is associated with the mail name
-	// 'me' can be used here. This implies that the config file actually 
+	// 'me' can be used here. This implies that the config file actually
 	// does not even need the field 'mailClientConfig.mail'.
 	// It is kept in the config.go file to keep the interface generic for
-	// other mail clients and authentication mechanisms. 
+	// other mail clients and authentication mechanisms.
 	user := "me"
 	listCall := gmailService.Users.Messages.List(user).Q("is:unread")
 	resp, err := listCall.Do()
@@ -153,7 +153,7 @@ func (service *GmailService) getClient(context context.Context, config *oauth2.C
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// check if token is already expired or about to expire (within minutes)
 	if token.Expiry.Before(time.Now().Add(4 * time.Minute)) {
 		// refresh token
