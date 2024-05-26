@@ -41,6 +41,11 @@ func (service *GmailService) GetAllUnreadMail(context context.Context) ([]Mail, 
 		return result, err
 	}
 
+	// Since the client config contains is associated with the mail name
+	// 'me' can be used here. This implies that the config file actually 
+	// does not even need the field 'mailClientConfig.mail'.
+	// It is kept in the config.go file to keep the interface generic for
+	// other mail clients and authentication mechanisms. 
 	user := "me"
 	listCall := gmailService.Users.Messages.List(user).Q("is:unread")
 	resp, err := listCall.Do()
