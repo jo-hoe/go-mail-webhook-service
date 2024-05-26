@@ -56,7 +56,10 @@ func getTokenFromWeb(context context.Context, pathToClientCredentials string, co
 			return
 		}
 	})
-	http.ListenAndServe(":8080", nil)
+	err := http.ListenAndServe(":8080", nil)
+	if err != nil {
+		panic(err)
+	}
 }
 
 // Saves a token to a file path.

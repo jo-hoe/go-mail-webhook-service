@@ -71,3 +71,21 @@ or use `make`
 ```bash
 make
 ```
+
+## Linting
+
+Project used golangci-lint for linting.
+
+### Installation
+
+See <https://golangci-lint.run/usage/install/>
+
+### Execution
+
+Run the linting locally by executing
+
+```bash
+golangci-lint run ./...
+```
+
+in the working directory
