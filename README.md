@@ -5,7 +5,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/jo-hoe/go-mail-webhook-service)](https://goreportcard.com/report/github.com/jo-hoe/go-mail-webhook-service)
 [![Coverage Status](https://coveralls.io/repos/github/jo-hoe/go-mail-webhook-service/badge.svg?branch=main)](https://coveralls.io/github/jo-hoe/go-mail-webhook-service?branch=main)
 
-Webhook allowing to pull mails and send requests to an callback url.
+Webhook allows to pull mails and send requests to a callback URL.
 
 ## Prerequisites
 
@@ -13,14 +13,14 @@ Webhook allowing to pull mails and send requests to an callback url.
 
 ### Mail Client
 
-Currently the only supported mail client is GMail.
-You will need the client credentials file and set it to name `client_secret.json` and `request.token` file.
-An example on how you can create it is described [here](cli\gmail\README.md).
-Once created use the [configuration file](#configuration-example) to set the directory where both files are stored.
+Currently, the only supported mail client is GMail.
+You will need the client credentials file, which you should set to the name `client_secret.json` and the `request.token` file.
+An example of creating it is described [here](cli\gmail\README.md).
+Once created, use the [configuration file](#configuration-example) to set the directory where both files are stored.
 
 ### Optional Components
 
-Use `make` to run the project. Make is typically installed out of the box on Linux and Mac.
+Run the project using `make`. Make is typically installed by default on Linux and Mac.
 
 If you do not have it and run on Windows, you can directly install it from [gnuwin32](https://gnuwin32.sourceforge.net/packages/make.htm) or via `winget`
 
@@ -32,7 +32,7 @@ If you want to run the project without Docker, you can install [Golang](https://
 
 ## Configuration Example
 
-Create a file with name `config.yaml` in directory `config`.
+Create a file with the name `config.yaml` in directory `config`.
 An example of the configuration file is described below.
 
 ```yaml
@@ -56,7 +56,7 @@ An example of the configuration file is described below.
 
 ## How to use
 
-After you have fulfilled the prerequisites you can go ahead and start the service.
+After you have fulfilled the prerequisites, you can start the service.
 
 ### Start
 
