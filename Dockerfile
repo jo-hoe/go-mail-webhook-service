@@ -7,7 +7,7 @@ RUN go mod download
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /bin/main ./main.go
 
-FROM golang:golang:1.22.4-alpine3.20
+FROM golang:1.22.4-alpine3.20
 
 COPY --from=build /bin/main main
 
