@@ -4,7 +4,7 @@ go 1.22
 
 require (
 	golang.org/x/oauth2 v0.21.0
-	google.golang.org/api v0.185.0
+	google.golang.org/api v0.186.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
