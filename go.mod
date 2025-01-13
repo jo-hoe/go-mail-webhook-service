@@ -10,7 +10,7 @@ require (
 )
 
 require (
-	cloud.google.com/go/auth v0.13.0 // indirect
+	cloud.google.com/go/auth v0.14.0 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.7 // indirect
 	cloud.google.com/go/compute/metadata v0.6.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
