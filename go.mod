@@ -1,7 +1,7 @@
 module github.com/jo-hoe/go-mail-webhook-service
 
 go 1.22
-toolchain go1.22.9
+toolchain go1.23.6
 
 require (
 	golang.org/x/oauth2 v0.26.0
@@ -10,7 +10,7 @@ require (
 )
 
 require (
-	cloud.google.com/go/auth v0.14.1 // indirect
+	cloud.google.com/go/auth v0.15.0 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.7 // indirect
 	cloud.google.com/go/compute/metadata v0.6.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
