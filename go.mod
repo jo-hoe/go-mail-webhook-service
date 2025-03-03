@@ -4,7 +4,7 @@ go 1.22
 toolchain go1.23.6
 
 require (
-	golang.org/x/oauth2 v0.26.0
+	golang.org/x/oauth2 v0.27.0
 	google.golang.org/api v0.223.0
 	gopkg.in/yaml.v2 v2.4.0
 )
