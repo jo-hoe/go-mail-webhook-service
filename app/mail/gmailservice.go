@@ -176,7 +176,11 @@ func tokenFromFile(filePath string) (*oauth2.Token, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() {
+		if cerr := file.Close(); cerr != nil {
+			log.Printf("Error closing file: %v", cerr)
+		}
+	}()
 	token := &oauth2.Token{}
 	err = json.NewDecoder(file).Decode(token)
 	return token, err

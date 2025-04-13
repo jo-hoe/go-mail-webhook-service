@@ -1,6 +1,7 @@
 module github.com/jo-hoe/go-mail-webhook-service
 
-go 1.22
+go 1.23.0
+
 toolchain go1.24.1
 
 require (
