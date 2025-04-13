@@ -69,7 +69,11 @@ func saveToken(path string, token *oauth2.Token) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		if cerr := file.Close(); cerr != nil {
+			log.Printf("Error closing file: %v", cerr)
+		}
+	}()
 	err = json.NewEncoder(file).Encode(token)
 	if err != nil {
 		return err

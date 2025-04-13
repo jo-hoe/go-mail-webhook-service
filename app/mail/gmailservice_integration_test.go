@@ -10,7 +10,11 @@ import (
 
 func TestIntegrationGmailService_getGmailService(t *testing.T) {
 	testRootDirectory, err := os.MkdirTemp(os.TempDir(), "testDir")
-	defer os.RemoveAll(testRootDirectory)
+	defer func() {
+		if cerr := os.RemoveAll(testRootDirectory); cerr != nil {
+			t.Errorf("Error removing directory: %v", cerr)
+		}
+	}()
 	if err != nil {
 		t.Error("could not create folder")
 	}
@@ -62,13 +66,21 @@ func copyFile(src, dst string, t *testing.T) {
 	if err != nil {
 		t.Errorf("Error: %v", err)
 	}
-	defer inputFile.Close()
+	defer func() {
+		if cerr := inputFile.Close(); cerr != nil {
+			t.Errorf("Error closing input file: %v", cerr)
+		}
+	}()
 
 	outputFile, err := os.Create(dst)
 	if err != nil {
 		t.Errorf("Error: %v", err)
 	}
-	defer outputFile.Close()
+	defer func() {
+		if cerr := outputFile.Close(); cerr != nil {
+			t.Errorf("Error closing output file: %v", cerr)
+		}
+	}()
 
 	_, err = io.Copy(outputFile, inputFile)
 
