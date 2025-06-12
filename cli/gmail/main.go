@@ -15,11 +15,13 @@ import (
 
 func main() {
 	args := os.Args
+	directory_of_client_secret_json := ""
 	if len(args) < 2 {
-		log.Printf("provide path to client credentials in quotes")
-		return
+		directory_of_client_secret_json = "."
+	} else {
+		directory_of_client_secret_json = args[1]
 	}
-	generateToken(args[1])
+	generateToken(directory_of_client_secret_json)
 }
 
 func generateToken(pathToClientCredentials string) {

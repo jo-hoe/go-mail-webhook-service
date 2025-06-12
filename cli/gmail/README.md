@@ -19,6 +19,14 @@ The current implementation relies on an OAuth.
 1. Grab your credentials
    1. Click "Credentials" on the left side
    1. Create a new OAuth credential with type "Web application"
+   1. Download the `client_secret.json` (the json will have a longer name, just rename it to `client_secret.json`)
+
+## Creation of request.token
+
+1. Place the `client_secret.json` in the folder
+2. Execute the `main.go` via `go run main.go ".\"` (this is the PowerShell command), the input parameter is the directory of the `client_secret.json`
+3. Open the webpage which is prompted in the terminal and continue in the wizard
+4. The `request.token` file will be generated
 
 ## Notes
 
