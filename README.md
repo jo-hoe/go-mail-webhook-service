@@ -15,7 +15,7 @@ Webhook allows to pull mails and send requests to a callback URL.
 
 Currently, the only supported mail client is GMail.
 You will need the client credentials file, which you should set to the name `client_secret.json` and the `request.token` file.
-An example of creating it is described [in this README](cli/gmail/README.md).
+An example of creating it is described [in this README](cli\gmail\README.md).
 Once created, use the [configuration file](#configuration-example) to set the directory where both files are stored.
 
 ### Optional Components
