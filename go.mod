@@ -6,7 +6,7 @@ toolchain go1.24.1
 
 require (
 	golang.org/x/oauth2 v0.30.0
-	google.golang.org/api v0.239.0
+	google.golang.org/api v0.240.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
