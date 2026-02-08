@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -14,12 +15,13 @@ import (
 
 	"github.com/jo-hoe/go-mail-webhook-service/app/config"
 	"github.com/jo-hoe/go-mail-webhook-service/app/mail"
+	"github.com/jo-hoe/go-mail-webhook-service/app/selector"
 )
 
-func Test_filterMailsBySubject(t *testing.T) {
+func Test_filterMailsByScopeSelectors(t *testing.T) {
 	type args struct {
-		mails []mail.Mail
-		regex string
+		mails      []mail.Mail
+		scopeProtos []selector.SelectorPrototype
 	}
 	tests := []struct {
 		name string
@@ -27,49 +29,47 @@ func Test_filterMailsBySubject(t *testing.T) {
 		want []mail.Mail
 	}{
 		{
-			name: "filter mails by subject",
+			name: "filter mails by subject scope selector",
 			args: args{
 				mails: []mail.Mail{
-					{
-						Subject: "includethis",
-					}, {
-						Subject: "donotincludethis",
-					},
+					{Subject: "includethis"},
+					{Subject: "donotincludethis"},
 				},
-				regex: "^includethis$",
+				scopeProtos: mustScopePrototypes(t, []config.MailSelectorConfig{
+					{
+						Name:    "subjectScope",
+						Type:    "subjectRegex",
+						Pattern: "^includethis$",
+						Scope:   true,
+					},
+				}),
 			},
 			want: []mail.Mail{
-				{
-					Subject: "includethis",
-				},
+				{Subject: "includethis"},
 			},
 		},
 		{
-			name: "filter mails with invalid regex",
+			name: "no scope selectors -> empty result",
 			args: args{
-				mails: []mail.Mail{
-					{
-						Subject: "",
-					},
-				},
-				regex: "(invalidRegex",
+				mails:       []mail.Mail{{Subject: "anything"}},
+				scopeProtos: []selector.SelectorPrototype{},
 			},
-			want: make([]mail.Mail, 0),
+			want: []mail.Mail{},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := filterMailsBySubject(tt.args.mails, tt.args.regex); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("filterMailsBySubject() = %v, want %v", got, tt.want)
+			if got := filterMailsByScopeSelectors(tt.args.mails, tt.args.scopeProtos); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("filterMailsByScopeSelectors() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func Test_selectFromBody(t *testing.T) {
+func Test_collectSelectorValues(t *testing.T) {
 	type args struct {
-		mail      mail.Mail
-		selectors []config.BodySelectorRegex
+		mail          mail.Mail
+		nonScopeProtos []selector.SelectorPrototype
 	}
 	tests := []struct {
 		name       string
@@ -77,37 +77,39 @@ func Test_selectFromBody(t *testing.T) {
 		wantResult map[string]string
 	}{
 		{
-			name: "convert to map",
+			name: "collect body value to map",
 			args: args{
 				mail: mail.Mail{
 					Body: "testValue",
 				},
-				selectors: []config.BodySelectorRegex{
+				nonScopeProtos: mustNonScopePrototypes(t, []config.MailSelectorConfig{
 					{
-						Regex: "testValue",
-						Name:  "testKey",
+						Name:         "testKey",
+						Type:         "bodyRegex",
+						Pattern:      "testValue",
+						CaptureGroup: 0,
+						Scope:        false,
 					},
-					{
-						Regex: "(invalidRegex",
-						Name:  "invalidRegex",
-					},
-				},
+				}),
 			},
 			wantResult: map[string]string{
 				"testKey": "testValue",
 			},
-		}, {
-			name: "convert link to map",
+		},
+		{
+			name: "collect link to map",
 			args: args{
 				mail: mail.Mail{
 					Body: "https://youtu.be/DucriSA8ukw?feature=shared\r",
 				},
-				selectors: []config.BodySelectorRegex{
+				nonScopeProtos: mustNonScopePrototypes(t, []config.MailSelectorConfig{
 					{
-						Regex: "https?://(www.)?[-a-zA-Z0-9@:%._+~#=]{1,256}.[a-zA-Z0-9()]{1,6}([-a-zA-Z0-9()@:%_+.~#?&//=]*)",
-						Name:  "url",
+						Name:    "url",
+						Type:    "bodyRegex",
+						Pattern: "https?://(www.)?[-a-zA-Z0-9@:%._+~#=]{1,256}.[a-zA-Z0-9()]{1,6}([-a-zA-Z0-9()@:%_+.~#?&//=]*)",
+						Scope:   false,
 					},
-				},
+				}),
 			},
 			wantResult: map[string]string{
 				"url": "https://youtu.be/DucriSA8ukw?feature=shared",
@@ -116,8 +118,8 @@ func Test_selectFromBody(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if gotResult := selectFromBody(tt.args.mail, tt.args.selectors); !reflect.DeepEqual(gotResult, tt.wantResult) {
-				t.Errorf("selectFromBody() = %v, want %v", gotResult, tt.wantResult)
+			if gotResult := collectSelectorValues(tt.args.mail, tt.args.nonScopeProtos); !reflect.DeepEqual(gotResult, tt.wantResult) {
+				t.Errorf("collectSelectorValues() = %v, want %v", gotResult, tt.wantResult)
 			}
 		})
 	}
@@ -125,8 +127,8 @@ func Test_selectFromBody(t *testing.T) {
 
 func Test_getRequestBody(t *testing.T) {
 	type args struct {
-		mail      mail.Mail
-		selectors []config.BodySelectorRegex
+		mail           mail.Mail
+		nonScopeProtos []selector.SelectorPrototype
 	}
 	tests := []struct {
 		name       string
@@ -139,12 +141,14 @@ func Test_getRequestBody(t *testing.T) {
 				mail: mail.Mail{
 					Body: "testValue",
 				},
-				selectors: []config.BodySelectorRegex{
+				nonScopeProtos: mustNonScopePrototypes(t, []config.MailSelectorConfig{
 					{
-						Regex: "testValue",
-						Name:  "testKey",
+						Name:    "testKey",
+						Type:    "bodyRegex",
+						Pattern: "testValue",
+						Scope:   false,
 					},
-				},
+				}),
 			},
 			wantResult: []byte("{\"testKey\":\"testValue\"}"),
 		},
@@ -154,14 +158,14 @@ func Test_getRequestBody(t *testing.T) {
 				mail: mail.Mail{
 					Body: "testValue",
 				},
-				selectors: []config.BodySelectorRegex{},
+				nonScopeProtos: []selector.SelectorPrototype{},
 			},
 			wantResult: nil,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if gotResult := getRequestBody(tt.args.mail, tt.args.selectors); !reflect.DeepEqual(gotResult, tt.wantResult) {
+			if gotResult := getRequestBody(tt.args.mail, tt.args.nonScopeProtos); !reflect.DeepEqual(gotResult, tt.wantResult) {
 				t.Errorf("getRequestBody() = %v, want %v", gotResult, tt.wantResult)
 			}
 		})
@@ -172,26 +176,20 @@ func Test_constructRequest(t *testing.T) {
 	testMethod := "POST"
 	testUrl := "http://example.com"
 	testBody := []byte("{\"testKey\":\"testValue\"}")
-	testRequestWithoutBody, err := http.NewRequest(testMethod, testUrl, nil)
-	if err != nil {
-		t.Error(err)
-	}
-
-	testRequestWithBody, err := http.NewRequest(testMethod, testUrl, bytes.NewReader(testBody))
-	if err != nil {
-		t.Error(err)
-	}
-	testRequestWithBody.Header.Set("Content-Type", "application/json")
 
 	type args struct {
-		mail   mail.Mail
-		config *config.Config
+		mail           mail.Mail
+		config         *config.Config
+		nonScopeProtos []selector.SelectorPrototype
 	}
 	tests := []struct {
-		name    string
-		args    args
-		want    *http.Request
-		wantErr bool
+		name         string
+		args         args
+		wantMethod   string
+		wantURL      string
+		wantHeaders  http.Header
+		wantBodyText string
+		wantErr      bool
 	}{
 		{
 			name: "construct request without body",
@@ -200,59 +198,86 @@ func Test_constructRequest(t *testing.T) {
 					Body: "testValue",
 				},
 				config: &config.Config{
-					BodySelectorRegexList: nil,
+					MailClientConfig:          config.MailClientConfig{},
+					MailSelectors:             nil,
+					IntervalBetweenExecutions: "",
+					RunOnce:                   false,
 					Callback: config.Callback{
 						Url:    testUrl,
 						Method: testMethod,
 					},
 				},
+				nonScopeProtos: []selector.SelectorPrototype{},
 			},
-			want:    testRequestWithoutBody,
-			wantErr: false,
-		}, {
-			name: "construct request",
+			wantMethod:   testMethod,
+			wantURL:      testUrl,
+			wantHeaders:  http.Header{},
+			wantBodyText: "",
+			wantErr:      false,
+		},
+		{
+			name: "construct request with body",
 			args: args{
 				mail: mail.Mail{
 					Body: "testValue",
 				},
 				config: &config.Config{
-					BodySelectorRegexList: []config.BodySelectorRegex{
-						{
-							Regex: "testValue",
-							Name:  "testKey",
-						},
-					},
 					Callback: config.Callback{
 						Url:    testUrl,
 						Method: testMethod,
 					},
 				},
+				nonScopeProtos: mustNonScopePrototypes(t, []config.MailSelectorConfig{
+					{
+						Name:    "testKey",
+						Type:    "bodyRegex",
+						Pattern: "testValue",
+						Scope:   false,
+					},
+				}),
 			},
-			want:    testRequestWithBody,
-			wantErr: false,
+			wantMethod:   testMethod,
+			wantURL:      testUrl,
+			wantHeaders:  http.Header{"Content-Type": []string{"application/json"}},
+			wantBodyText: string(testBody),
+			wantErr:      false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := constructRequest(tt.args.mail, tt.args.config)
+			got, err := constructRequest(tt.args.mail, tt.args.config, tt.args.nonScopeProtos)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("constructRequest() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if got.Method != tt.want.Method {
-				t.Errorf("constructRequest() got = %v, want %v", got.Method, tt.want.Method)
+			if got.Method != tt.wantMethod {
+				t.Errorf("constructRequest() got method = %v, want %v", got.Method, tt.wantMethod)
 			}
-			if got.URL.String() != tt.want.URL.String() {
-				t.Errorf("constructRequest() got = %v, want %v", got.URL.String(), tt.want.URL.String())
+			if got.URL.String() != tt.wantURL {
+				t.Errorf("constructRequest() got url = %v, want %v", got.URL.String(), tt.wantURL)
 			}
-			if !reflect.DeepEqual(got.Header, tt.want.Header) {
-				t.Errorf("constructRequest() got = %v, want %v", got.Header, tt.want.Header)
+			if !headersEqual(got.Header, tt.wantHeaders) {
+				t.Errorf("constructRequest() got headers = %v, want %v", got.Header, tt.wantHeaders)
 			}
-			if !reflect.DeepEqual(got.Body, tt.want.Body) {
-				t.Errorf("constructRequest() got = %v, want %v", got.Body, tt.want.Body)
+			var bodyText string
+			if got.Body != nil {
+				b, _ := io.ReadAll(got.Body)
+				bodyText = string(b)
+			} else {
+				bodyText = ""
+			}
+			if bodyText != tt.wantBodyText {
+				t.Errorf("constructRequest() got body = %s, want %s", bodyText, tt.wantBodyText)
 			}
 		})
 	}
+}
+
+func headersEqual(a, b http.Header) bool {
+	if len(a) == 0 && len(b) == 0 {
+		return true
+	}
+	return reflect.DeepEqual(a, b)
 }
 
 func Test_processMail(t *testing.T) {
@@ -262,6 +287,27 @@ func Test_processMail(t *testing.T) {
 		log.SetOutput(os.Stderr)
 	}()
 	t.Log(logBuffer.String())
+
+	// Build non-scope prototypes for body
+	_, nonScopeProtos, err := buildSelectorPrototypes(&config.Config{
+		MailSelectors: []config.MailSelectorConfig{
+			{
+				Name:    "subjectScope",
+				Type:    "subjectRegex",
+				Pattern: "testSubject",
+				Scope:   true,
+			},
+			{
+				Name:    "testKey",
+				Type:    "bodyRegex",
+				Pattern: "testValue",
+				Scope:   false,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("failed to build selector prototypes: %v", err)
+	}
 
 	type args struct {
 		ctx            context.Context
@@ -288,13 +334,6 @@ func Test_processMail(t *testing.T) {
 					Body:    "testValue",
 				},
 				config: &config.Config{
-					SubjectSelectorRegex: "testSubject",
-					BodySelectorRegexList: []config.BodySelectorRegex{
-						{
-							Regex: "testValue",
-							Name:  "testKey",
-						},
-					},
 					Callback: config.Callback{
 						Url:    "http://example.com",
 						Method: "POST",
@@ -303,7 +342,7 @@ func Test_processMail(t *testing.T) {
 				wantSuccessLog: true,
 			},
 		}, {
-			name: "process mail without body selector",
+			name: "process mail without body selector values",
 			args: args{
 				ctx: context.Background(),
 				client: &http.Client{
@@ -312,11 +351,9 @@ func Test_processMail(t *testing.T) {
 				mailService: &mail.MailClientServiceMock{},
 				mail: mail.Mail{
 					Subject: "testSubject",
-					Body:    "testValue",
+					Body:    "noMatch",
 				},
 				config: &config.Config{
-					SubjectSelectorRegex:  "testSubject",
-					BodySelectorRegexList: make([]config.BodySelectorRegex, 0),
 					Callback: config.Callback{
 						Url:    "http://example.com",
 						Method: "POST",
@@ -329,7 +366,7 @@ func Test_processMail(t *testing.T) {
 	for _, tt := range tests {
 		var wg sync.WaitGroup
 		wg.Add(1)
-		processMail(tt.args.ctx, tt.args.client, tt.args.mailService, tt.args.mail, tt.args.config, &wg)
+		processMail(tt.args.ctx, tt.args.client, tt.args.mailService, tt.args.mail, tt.args.config, nonScopeProtos, &wg)
 		wg.Wait()
 		bufferString := logBuffer.String()
 		if tt.args.wantSuccessLog && !strings.Contains(bufferString, "successfully processed mail") {
@@ -373,11 +410,18 @@ func Test_processMails(t *testing.T) {
 					},
 				},
 				config: &config.Config{
-					SubjectSelectorRegex: "testSubject",
-					BodySelectorRegexList: []config.BodySelectorRegex{
+					MailSelectors: []config.MailSelectorConfig{
 						{
-							Regex: "testValue",
-							Name:  "testKey",
+							Name:    "subjectScope",
+							Type:    "subjectRegex",
+							Pattern: "testSubject",
+							Scope:   true,
+						},
+						{
+							Name:    "testKey",
+							Type:    "bodyRegex",
+							Pattern: "testValue",
+							Scope:   false,
 						},
 					},
 				},
@@ -393,7 +437,7 @@ func Test_processMails(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
-		expectedLog := fmt.Sprintf("number of unread mails that match subject selector '%s' is: %d", tt.args.config.SubjectSelectorRegex, len(numberOfUnreadMails))
+		expectedLog := fmt.Sprintf("number of unread mails that are in scope is: %d", len(numberOfUnreadMails))
 		if !strings.Contains(bufferString, expectedLog) {
 			t.Errorf("Did not find expected log '%s'", expectedLog)
 		}
@@ -448,4 +492,32 @@ func createString(character rune, length int) string {
 		sb.WriteRune(character)
 	}
 	return sb.String()
+}
+
+func mustScopePrototypes(t *testing.T, cfgs []config.MailSelectorConfig) []selector.SelectorPrototype {
+	all, err := selector.NewSelectorPrototypes(cfgs)
+	if err != nil {
+		t.Fatalf("failed to build selector prototypes: %v", err)
+	}
+	scope := make([]selector.SelectorPrototype, 0)
+	for _, p := range all {
+		if p.NewInstance().IsScope() {
+			scope = append(scope, p)
+		}
+	}
+	return scope
+}
+
+func mustNonScopePrototypes(t *testing.T, cfgs []config.MailSelectorConfig) []selector.SelectorPrototype {
+	all, err := selector.NewSelectorPrototypes(cfgs)
+	if err != nil {
+		t.Fatalf("failed to build selector prototypes: %v", err)
+	}
+	nonScope := make([]selector.SelectorPrototype, 0)
+	for _, p := range all {
+		if !p.NewInstance().IsScope() {
+			nonScope = append(nonScope, p)
+		}
+	}
+	return nonScope
 }

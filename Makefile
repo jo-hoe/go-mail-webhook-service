@@ -14,6 +14,10 @@ update: ## update dependencies
 	git pull
 	go mod tidy
 
+.PHONY: lint
+lint: ## run linters
+	golangci-lint run
+
 .PHONY: start
 start: ## start via docker
 	@${DOCKER_COMPOSE_CMD}

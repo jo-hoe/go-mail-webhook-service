@@ -21,12 +21,11 @@ var supportHttpMethods = map[string]bool{
 }
 
 type Config struct {
-	MailClientConfig          MailClientConfig    `yaml:"mailClientConfig"`
-	SubjectSelectorRegex      string              `yaml:"subjectSelectorRegex"`
-	BodySelectorRegexList     []BodySelectorRegex `yaml:"bodySelectorRegexList"`
-	Callback                  Callback            `yaml:"callback"`
-	IntervalBetweenExecutions string              `yaml:"intervalBetweenExecutions"` // default is "0s"
-	RunOnce                   bool                `yaml:"runOnce"`
+	MailClientConfig          MailClientConfig        `yaml:"mailClientConfig"`
+	MailSelectors             []MailSelectorConfig    `yaml:"mailSelectors"`
+	Callback                  Callback                `yaml:"callback"`
+	IntervalBetweenExecutions string                  `yaml:"intervalBetweenExecutions"` // default is "0s"
+	RunOnce                   bool                    `yaml:"runOnce"`
 }
 
 type MailClientConfig struct {
@@ -34,9 +33,12 @@ type MailClientConfig struct {
 	CredentialsPath string `yaml:"credentialsPath"`
 }
 
-type BodySelectorRegex struct {
-	Name  string `yaml:"name"`
-	Regex string `yaml:"regex"`
+type MailSelectorConfig struct {
+	Name         string `yaml:"name"`
+	Type         string `yaml:"type"`         // "subjectRegex" | "bodyRegex"
+	Pattern      string `yaml:"pattern"`      // regex pattern
+	CaptureGroup int    `yaml:"captureGroup"` // default 0 (full match)
+	Scope        bool   `yaml:"scope"`        // default false
 }
 
 type Callback struct {
@@ -69,6 +71,7 @@ func setDefaults(input *[]Config) (output *[]Config) {
 		if config.Callback.Timeout == "" {
 			(*output)[i].Callback.Timeout = "24s"
 		}
+		// CaptureGroup and Scope default via zero-values; nothing to set here
 	}
 	return output
 }
@@ -83,23 +86,51 @@ func validateConfigs(configs *[]Config) error {
 }
 
 func validateConfig(config *Config) error {
-	_, err := regexp.Compile(config.SubjectSelectorRegex)
-	if err != nil {
-		return err
-	}
-	for _, bodySelectorRegex := range config.BodySelectorRegexList {
-		_, err := regexp.Compile(bodySelectorRegex.Regex)
-		if err != nil {
+	// Validate selectors
+	for _, sel := range config.MailSelectors {
+		if err := validateMailSelectorConfig(&sel); err != nil {
 			return err
 		}
 	}
 
+	// Validate callback
 	if err := validateCallback(&config.Callback); err != nil {
 		return err
 	}
 
-	if _, err = time.ParseDuration(config.IntervalBetweenExecutions); err != nil {
+	// Validate interval
+	if _, err := time.ParseDuration(config.IntervalBetweenExecutions); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func validateMailSelectorConfig(sel *MailSelectorConfig) error {
+	// name: alphanumeric only
+	nameRegex := regexp.MustCompile("^[0-9A-Za-z]+$")
+	if !nameRegex.MatchString(sel.Name) {
+		return fmt.Errorf("mailSelectors.name must match ^[0-9A-Za-z]+$: '%s'", sel.Name)
+	}
+
+	// type: only "subjectRegex" or "bodyRegex" supported currently
+	if sel.Type != "subjectRegex" && sel.Type != "bodyRegex" {
+		return fmt.Errorf("mailSelectors.type not supported: '%s' (supported: 'subjectRegex','bodyRegex')", sel.Type)
+	}
+
+	// pattern must compile
+	re, err := regexp.Compile(sel.Pattern)
+	if err != nil {
+		return fmt.Errorf("mailSelectors.pattern cannot be compiled: '%s' - error: %s", sel.Pattern, err)
+	}
+
+	// captureGroup must be >= 0 and not exceed available subexpressions
+	if sel.CaptureGroup < 0 {
+		return fmt.Errorf("mailSelectors.captureGroup must be >= 0 (got %d)", sel.CaptureGroup)
+	}
+	// NumSubexp is the number of capturing groups; captureGroup == 0 is full match
+	if sel.CaptureGroup > re.NumSubexp() {
+		return fmt.Errorf("mailSelectors.captureGroup (%d) exceeds number of groups (%d) in pattern '%s'", sel.CaptureGroup, re.NumSubexp(), sel.Pattern)
 	}
 
 	return nil

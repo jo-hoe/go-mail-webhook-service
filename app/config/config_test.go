@@ -22,13 +22,18 @@ func TestNewConfig(t *testing.T) {
 - mailClientConfig: 
     mail: "example@gmail.com"
     credentialsPath: "/path/to/client_secrets/file/"
-  subjectSelectorRegex: ".*"
-  runOnce: true
-  bodySelectorRegexList:
+  mailSelectors:
+  - name: "subjectScope"
+    type: "subjectRegex"
+    pattern: ".*"
+    scope: true
   - name: "test"
-    regex: "[a-z]{0,6}"
+    type: "bodyRegex"
+    pattern: "[a-z]{0,6}"
   - name: "test2"
-    regex: ".*"
+    type: "bodyRegex"
+    pattern: ".*"
+  runOnce: true
   intervalBetweenExecutions: 20s
   callback:
     url: "https://example.com/callback"
@@ -42,19 +47,31 @@ func TestNewConfig(t *testing.T) {
 						Mail:            "example@gmail.com",
 						CredentialsPath: "/path/to/client_secrets/file/",
 					},
-					IntervalBetweenExecutions: "20s",
-					RunOnce:                   true,
-					SubjectSelectorRegex:      ".*",
-					BodySelectorRegexList: []BodySelectorRegex{
+					MailSelectors: []MailSelectorConfig{
 						{
-							Name:  "test",
-							Regex: "[a-z]{0,6}",
+							Name:         "subjectScope",
+							Type:         "subjectRegex",
+							Pattern:      ".*",
+							CaptureGroup: 0,
+							Scope:        true,
 						},
 						{
-							Name:  "test2",
-							Regex: ".*",
+							Name:         "test",
+							Type:         "bodyRegex",
+							Pattern:      "[a-z]{0,6}",
+							CaptureGroup: 0,
+							Scope:        false,
+						},
+						{
+							Name:         "test2",
+							Type:         "bodyRegex",
+							Pattern:      ".*",
+							CaptureGroup: 0,
+							Scope:        false,
 						},
 					},
+					IntervalBetweenExecutions: "20s",
+					RunOnce:                   true,
 					Callback: Callback{
 						Url:     "https://example.com/callback",
 						Method:  "POST",
@@ -78,7 +95,11 @@ func TestNewConfig(t *testing.T) {
 - mailClientConfig: 
     mail: "example@gmail.com"
     credentialsPath: "/path/to/client_secrets/file/"
-  subjectSelectorRegex: ".*"
+  mailSelectors:
+  - name: "subjectScope"
+    type: "subjectRegex"
+    pattern: ".*"
+    scope: true
   callback:
     url: "https://example.com/callback"
     method: "POST"`),
@@ -89,10 +110,17 @@ func TestNewConfig(t *testing.T) {
 						Mail:            "example@gmail.com",
 						CredentialsPath: "/path/to/client_secrets/file/",
 					},
+					MailSelectors: []MailSelectorConfig{
+						{
+							Name:         "subjectScope",
+							Type:         "subjectRegex",
+							Pattern:      ".*",
+							CaptureGroup: 0,
+							Scope:        true,
+						},
+					},
 					IntervalBetweenExecutions: "0s",
 					RunOnce:                   false,
-					SubjectSelectorRegex:      ".*",
-					BodySelectorRegexList:     nil,
 					Callback: Callback{
 						Url:     "https://example.com/callback",
 						Method:  "POST",
@@ -109,7 +137,11 @@ func TestNewConfig(t *testing.T) {
 - mailClientConfig: 
     mail: "example@gmail.com"
     credentialsPath: "/path/to/client_secrets/file/"
-  subjectSelectorRegex: ".*"
+  mailSelectors:
+  - name: "subjectScope"
+    type: "subjectRegex"
+    pattern: ".*"
+    scope: true
   callback:
     url: "https://example.com/callback"
     method: "invalid"`),
