@@ -9,6 +9,11 @@ IMAGE_TAG := mws
 
 DOCKER_COMPOSE_CMD := docker compose up
 
+.PHONY: update
+update: ## update dependencies
+	git pull
+	go mod tidy
+
 .PHONY: start
 start: ## start via docker
 	@${DOCKER_COMPOSE_CMD}
