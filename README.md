@@ -159,6 +159,7 @@ Flow:
   - Stops and recreates the cluster and re-installs the chart
 
 Dev overrides:
+
 - Edit dev/config.yaml to set image repository (registry.localhost:5000/go-mail-webhook-service) and supply your configs array.
 
 ## CI/CD
@@ -174,6 +175,7 @@ Two GitHub Actions workflows are included:
   - Ensure GitHub Pages is enabled for the gh-pages branch if you want to serve an index.yaml as a Helm repo
 
 Tagging a new release:
+
 - Bump versions as needed (appVersion in Chart.yaml for image tag reference, version for chart)
 - Push a git tag like v1.2.3 to trigger image publishing
 - Merge changes to charts/ on main to trigger chart release

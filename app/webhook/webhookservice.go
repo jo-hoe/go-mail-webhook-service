@@ -264,19 +264,6 @@ func buildSelectorPrototypes(config *config.Config) ([]selector.SelectorPrototyp
 	return selector.NewSelectorPrototypes(config.MailSelectors)
 }
 
- // evaluateSelectors runs all selector prototypes against a mail and returns matched values by selector name.
-func evaluateSelectors(m mail.Mail, allProtos []selector.SelectorPrototype) map[string]string {
-	result := map[string]string{}
-	for _, proto := range allProtos {
-		sel := proto.NewInstance()
-		if v, err := sel.SelectValue(m); err == nil {
-			if v != "" {
-				result[sel.Name()] = v
-			}
-		}
-	}
-	return result
-}
 
 // evaluateSelectorsStrict ensures every selector applies; returns error if any selector doesn't match.
 func evaluateSelectorsStrict(m mail.Mail, allProtos []selector.SelectorPrototype) (map[string]string, error) {

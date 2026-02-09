@@ -19,11 +19,12 @@ func NewSelectorPrototypes(cfgs []config.MailSelectorConfig) ([]SelectorPrototyp
 				return nil, fmt.Errorf("failed to compile regex for selector '%s': %w", c.Name, err)
 			}
 			var target regexTarget
-			if c.Type == "subjectRegex" {
+			switch c.Type {
+			case "subjectRegex":
 				target = targetSubject
-			} else if c.Type == "bodyRegex" {
+			case "bodyRegex":
 				target = targetBody
-			} else {
+			case "senderRegex":
 				target = targetSender
 			}
 			prototypes = append(prototypes, &RegexSelectorPrototype{
