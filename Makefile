@@ -55,11 +55,11 @@ generate-helm-docs: ## re-generates helm docs using docker (if chart has README 
 
 .PHONY: start-cluster
 start-cluster: ## starts k3d cluster and local registry
-	@k3d cluster create --config ${ROOT_DIR}k3d/clusterconfig.yaml
+	@k3d cluster create --config ${ROOT_DIR}dev/clusterconfig.yaml
 
 .PHONY: stop-k3d
 stop-k3d: ## stop k3d cluster and local registry
-	@k3d cluster delete --config ${ROOT_DIR}k3d/clusterconfig.yaml
+	@k3d cluster delete --config ${ROOT_DIR}dev/clusterconfig.yaml
 
 .PHONY: restart-k3d
 restart-k3d: stop-k3d start-k3d ## restarts k3d cluster and re-installs chart

@@ -1,6 +1,6 @@
 services:
-  mail-webhook-service:
+  go-mail-webhook-service:
     build: .
-    image: mail-webhook-service
+    image: go-mail-webhook-service
     volumes:
-      - "./config/:/go/config"
+      - "./dev/config/:/go/config" # Place your runtime app config at ./config/config.yaml; see dev/config.example.yaml for an example

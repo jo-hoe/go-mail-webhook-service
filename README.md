@@ -32,9 +32,10 @@ If you want to run the project without Docker, you can install [Golang](https://
 
 ## Configuration Example
 
-Create a file `config/config.yaml`. The application supports structured callback sections and selector-based placeholders.
+Create a file `dev/config.yaml` (use `dev/config.example.yaml` as a template). The application supports structured callback sections and selector-based placeholders.
 
 Placeholders:
+
 - Use ${SelectorName} in headers/queryParams/form/body to substitute values extracted by selectors.
 - Selector names must be alphanumeric only (^[0-9A-Za-z]+$).
 
@@ -142,7 +143,7 @@ See charts/go-mail-webhook-service/values.yaml for full options and an example.
 
 ## Local development with k3d
 
-A k3d cluster config is provided (k3d/clusterconfig.yaml) and Makefile targets mirror the reference repo.
+A k3d cluster config is provided (dev/clusterconfig.yaml) and Makefile targets mirror the reference repo.
 
 Flow:
 - make start-k3d

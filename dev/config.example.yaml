@@ -5,7 +5,6 @@
 # Notes:
 # - The top-level structure is a YAML list of config objects.
 # - Each config entry runs independently with its own selectors and callback.
-# - Time values must be valid Go duration strings, e.g. "24s", "1m", "2h45m".
 # - Supported selector types: "subjectRegex", "bodyRegex", "attachmentNameRegex", "senderRegex"
 # - Supported HTTP methods: GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS, TRACE
 #
@@ -125,4 +124,3 @@
     queryParams:
       - key: "url"
         value: "${Link}"
-

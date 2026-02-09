@@ -1,0 +1,29 @@
+# Runtime application config for go-mail-webhook-service
+# This file is mounted into the container at /go/config/config.yaml by docker-compose.
+# Replace placeholders with real values (Gmail credentials must be provided and mounted if you want real mail processing).
+
+- mailClientConfig:
+    mail: "your-account@gmail.com"
+    # Inside the container, this directory must contain:
+    #   - client_secret.json
+    #   - request.token
+    # Adjust and mount it accordingly if you want to run end-to-end.
+    credentialsPath: "/secrets/mail"
+
+  # Minimal selector: match any subject to keep the config valid
+  mailSelectors:
+    - name: "Any"
+      type: "subjectRegex"
+      pattern: ".*"
+      captureGroup: 0
+      scope: true
+
+  callback:
+    url: "https://example.com/webhook"
+    method: "GET"
+    timeout: "24s"
+    retries: 0
+    headers: []
+    queryParams: []
+    form: []
+    body: ""
