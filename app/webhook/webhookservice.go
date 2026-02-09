@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"github.com/jo-hoe/go-mail-webhook-service/app/callbackfield"
 	"sync"
 	"time"
 
@@ -96,18 +97,23 @@ func processMails(ctx context.Context, client *http.Client, config *config.Confi
 	log.Printf("number of unread mails that are in scope is: %d\n", len(filteredMails))
 
 	var wg sync.WaitGroup
+	// build combined prototypes for placeholder evaluation (scope + non-scope)
+	allProtos := make([]selector.SelectorPrototype, 0, len(scopeProtos)+len(nonScopeProtos))
+	allProtos = append(allProtos, scopeProtos...)
+	allProtos = append(allProtos, nonScopeProtos...)
+
 	for _, m := range filteredMails {
 		wg.Add(1)
-		go processMail(ctx, client, mailService, m, config, nonScopeProtos, &wg)
+		go processMail(ctx, client, mailService, m, config, allProtos, &wg)
 	}
 	wg.Wait()
 }
 
 func processMail(ctx context.Context, client *http.Client, mailService mail.MailClientService,
-	m mail.Mail, config *config.Config, nonScopeProtos []selector.SelectorPrototype, wg *sync.WaitGroup) {
+	m mail.Mail, config *config.Config, allProtos []selector.SelectorPrototype, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	request, err := constructRequest(m, config, nonScopeProtos)
+	request, err := constructRequest(m, config, allProtos)
 	if err != nil {
 		log.Printf("could not create request - error: %s", err)
 		return
@@ -155,17 +161,52 @@ func sendRequest(request *http.Request, client *http.Client) error {
 	return nil
 }
 
-func constructRequest(m mail.Mail, config *config.Config, nonScopeProtos []selector.SelectorPrototype) (request *http.Request, err error) {
-	bodyBytes := getRequestBody(m, nonScopeProtos)
-	if len(bodyBytes) > 0 {
-		request, err = http.NewRequest(config.Callback.Method, config.Callback.Url, bytes.NewReader(bodyBytes))
-		if err == nil {
-			request.Header.Set("Content-Type", "application/json")
-		}
-	} else {
-		request, err = http.NewRequest(config.Callback.Method, config.Callback.Url, nil)
+func constructRequest(m mail.Mail, config *config.Config, allProtos []selector.SelectorPrototype) (request *http.Request, err error) {
+	// Evaluate all selectors to build placeholder map
+	selected := evaluateSelectors(m, allProtos)
+
+	// Build field prototypes and accumulate request parts
+	fieldProtos, err := callbackfield.NewFieldPrototypes(config.Callback.Fields)
+	if err != nil {
+		return nil, err
 	}
-	return request, err
+	parts := callbackfield.NewRequestBuildParts()
+	for _, p := range fieldProtos {
+		f := p.NewInstance()
+		f.Apply(selected, parts)
+	}
+
+	// Start with a base request without body; we'll attach body/headers/query per fields
+	request, err = http.NewRequest(config.Callback.Method, config.Callback.Url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Apply query parameters
+	q := request.URL.Query()
+	for name, values := range parts.Query {
+		for _, v := range values {
+			q.Add(name, v)
+		}
+	}
+	request.URL.RawQuery = q.Encode()
+
+	// Apply headers
+	for name, value := range parts.Headers {
+		request.Header.Set(name, value)
+	}
+
+	// Attach JSON body if any jsonValue fields were provided
+	if len(parts.JSON) > 0 {
+		bodyBytes, mErr := json.Marshal(parts.JSON)
+		if mErr != nil {
+			return nil, mErr
+		}
+		request.Body = ioNopCloser(bytes.NewReader(bodyBytes))
+		request.ContentLength = int64(len(bodyBytes))
+	}
+
+	return request, nil
 }
 
 func getRequestBody(m mail.Mail, nonScopeProtos []selector.SelectorPrototype) (result []byte) {
@@ -252,4 +293,28 @@ func buildSelectorPrototypes(config *config.Config) (scope []selector.SelectorPr
 		}
 	}
 	return scope, nonScope, nil
+}
+
+// evaluateSelectors runs all selector prototypes against a mail and returns matched values by selector name.
+func evaluateSelectors(m mail.Mail, allProtos []selector.SelectorPrototype) map[string]string {
+	result := map[string]string{}
+	for _, proto := range allProtos {
+		sel := proto.NewInstance()
+		if sel.Evaluate(m) {
+			if v := sel.SelectedValue(); v != "" {
+				result[sel.Name()] = v
+			}
+		}
+	}
+	return result
+}
+
+
+// ioNopCloser wraps a Reader to satisfy io.ReadCloser without allocating a full NopCloser dependency.
+type nopCloser struct{ *bytes.Reader }
+
+func (nc nopCloser) Close() error { return nil }
+
+func ioNopCloser(r *bytes.Reader) nopCloser {
+	return nopCloser{r}
 }

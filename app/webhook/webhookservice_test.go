@@ -225,6 +225,13 @@ func Test_constructRequest(t *testing.T) {
 					Callback: config.Callback{
 						Url:    testUrl,
 						Method: testMethod,
+						Fields: []config.CallbackField{
+							{
+								Name:  "testKey",
+								Type:  "jsonValue",
+								Value: "${testKey}",
+							},
+						},
 					},
 				},
 				nonScopeProtos: mustNonScopePrototypes(t, []config.MailSelectorConfig{
@@ -337,6 +344,13 @@ func Test_processMail(t *testing.T) {
 					Callback: config.Callback{
 						Url:    "http://example.com",
 						Method: "POST",
+						Fields: []config.CallbackField{
+							{
+								Name:  "testKey",
+								Type:  "jsonValue",
+								Value: "${testKey}",
+							},
+						},
 					},
 				},
 				wantSuccessLog: true,
@@ -357,6 +371,13 @@ func Test_processMail(t *testing.T) {
 					Callback: config.Callback{
 						Url:    "http://example.com",
 						Method: "POST",
+						Fields: []config.CallbackField{
+							{
+								Name:  "testKey",
+								Type:  "jsonValue",
+								Value: "${testKey}",
+							},
+						},
 					},
 				},
 				wantSuccessLog: true,
@@ -422,6 +443,15 @@ func Test_processMails(t *testing.T) {
 							Type:    "bodyRegex",
 							Pattern: "testValue",
 							Scope:   false,
+						},
+					},
+					Callback: config.Callback{
+						Fields: []config.CallbackField{
+							{
+								Name:  "testKey",
+								Type:  "jsonValue",
+								Value: "${testKey}",
+							},
 						},
 					},
 				},

@@ -52,6 +52,17 @@ An example of the configuration file is described below.
     method: "POST" # method of the callback, has to be provided as uppercase string
     timeout: 24s # timeout for the callback, default is 24 seconds
     retries: 0 # number of retries for the callback, default is 0
+    fields:
+      - name: "name1" # arbitrary name of the field, will be used as json attribute in the callback
+        type: "jsonValue" # type of the field, currently only jsonValue is supported, which means that the value will be set as value of the json attribute in the callback
+        value: "value1" #
+      - name: "name2"
+        type: "headerValue" # type of the field, currently only headerValue is supported, which means that the value will be set as value of the header in the callback
+        value: "ContentType: application/json" # name of the header, which value will be set as value of the header in the callback
+      - name: "name3"
+        type: "queryParamValue"
+        value: "value3" # value of the query parameter, which will be set as value of the query
+        
 ```
 
 ## How to use

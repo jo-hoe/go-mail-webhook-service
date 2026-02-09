@@ -20,6 +20,36 @@ var supportHttpMethods = map[string]bool{
 	http.MethodTrace:   true,
 }
 
+// CallbackField describes how to contribute to the outgoing request.
+type CallbackField struct {
+	Name  string `yaml:"name"`
+	Type  string `yaml:"type"`  // "jsonValue" | "headerValue" | "queryParamValue"
+	Value string `yaml:"value"` // may contain placeholders like ${selectorName}
+}
+
+func validateCallbackFields(fields []CallbackField) error {
+	for _, f := range fields {
+		switch f.Type {
+		case "jsonValue", "queryParamValue":
+			// Name must be alphanumeric
+			nameRegex := regexp.MustCompile("^[0-9A-Za-z]+$")
+			if !nameRegex.MatchString(f.Name) {
+				return fmt.Errorf("callback.fields[%s] invalid name for type %s: must match ^[0-9A-Za-z]+$", f.Name, f.Type)
+			}
+		case "headerValue":
+			// Allow hyphens in header names
+			nameRegex := regexp.MustCompile("^[0-9A-Za-z-]+$")
+			if !nameRegex.MatchString(f.Name) {
+				return fmt.Errorf("callback.fields[%s] invalid header name: must match ^[0-9A-Za-z-]+$", f.Name)
+			}
+		default:
+			return fmt.Errorf("callback.fields[%s] invalid type: %s (supported: jsonValue, headerValue, queryParamValue)", f.Name, f.Type)
+		}
+		// f.Value can be any string; placeholders are validated at runtime
+	}
+	return nil
+}
+
 type Config struct {
 	MailClientConfig          MailClientConfig        `yaml:"mailClientConfig"`
 	MailSelectors             []MailSelectorConfig    `yaml:"mailSelectors"`
@@ -42,10 +72,11 @@ type MailSelectorConfig struct {
 }
 
 type Callback struct {
-	Url     string `yaml:"url"`
-	Method  string `yaml:"method"`
-	Timeout string `yaml:"timeout"` // default is "24s"
-	Retries int    `yaml:"retries"` // default is "0"
+	Url     string          `yaml:"url"`
+	Method  string          `yaml:"method"`
+	Timeout string          `yaml:"timeout"` // default is "24s"
+	Retries int             `yaml:"retries"` // default is "0"
+	Fields  []CallbackField `yaml:"fields"`
 }
 
 func NewConfigsFromYaml(yamlBytes []byte) (*[]Config, error) {
@@ -156,6 +187,11 @@ func validateCallback(callback *Callback) error {
 
 	if callback.Retries < 0 {
 		return fmt.Errorf("callback.retries must be greater than or equal to 0")
+	}
+
+	// Validate fields, if provided
+	if err := validateCallbackFields(callback.Fields); err != nil {
+		return err
 	}
 
 	return nil
