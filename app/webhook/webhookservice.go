@@ -28,22 +28,11 @@ func NewWebhookService(configs *[]config.Config) *WebhookService {
 }
 
 func (webhookService *WebhookService) Run() {
-	for _, config := range *webhookService.configs {
-		go createWebhook(&config)
+	for i := range *webhookService.configs {
+		processWebhook(&(*webhookService.configs)[i])
 	}
 }
 
-func createWebhook(config *config.Config) {
-	for {
-		processWebhook(config)
-		wait(config.IntervalBetweenExecutions)
-
-		if config.RunOnce {
-			log.Print("'runOnce' is set to true. exiting")
-			break
-		}
-	}
-}
 
 func processWebhook(config *config.Config) {
 	mailService, err := mail.NewMailClientService(&config.MailClientConfig)
@@ -71,14 +60,6 @@ func createHttpClient(config *config.Config) (client *http.Client, err error) {
 	return client, nil
 }
 
-func wait(durationString string) {
-	duration, err := time.ParseDuration(durationString)
-	if err != nil {
-		log.Printf("could parse time - error: %s", err)
-		return
-	}
-	time.Sleep(duration)
-}
 
 func processMails(ctx context.Context, client *http.Client, config *config.Config, mailService mail.MailClientService) {
 	log.Print("start reading mails\n")

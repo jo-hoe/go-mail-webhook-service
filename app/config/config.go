@@ -45,11 +45,9 @@ func validateKeyValueList(list []KeyValue, allowHyphens bool, context string) er
 }
 
 type Config struct {
-	MailClientConfig          MailClientConfig     `yaml:"mailClientConfig"`
-	MailSelectors             []MailSelectorConfig `yaml:"mailSelectors"`
-	Callback                  Callback             `yaml:"callback"`
-	IntervalBetweenExecutions string               `yaml:"intervalBetweenExecutions"` // default is "0s"
-	RunOnce                   bool                 `yaml:"runOnce"`
+	MailClientConfig  MailClientConfig     `yaml:"mailClientConfig"`
+	MailSelectors     []MailSelectorConfig `yaml:"mailSelectors"`
+	Callback          Callback             `yaml:"callback"`
 }
 
 type MailClientConfig struct {
@@ -93,9 +91,6 @@ func NewConfigsFromYaml(yamlBytes []byte) (*[]Config, error) {
 func setDefaults(input *[]Config) (output *[]Config) {
 	output = input
 	for i, config := range *output {
-		if config.IntervalBetweenExecutions == "" {
-			(*output)[i].IntervalBetweenExecutions = "0s"
-		}
 		if config.Callback.Timeout == "" {
 			(*output)[i].Callback.Timeout = "24s"
 		}
@@ -123,11 +118,6 @@ func validateConfig(config *Config) error {
 
 	// Validate callback
 	if err := validateCallback(&config.Callback); err != nil {
-		return err
-	}
-
-	// Validate interval
-	if _, err := time.ParseDuration(config.IntervalBetweenExecutions); err != nil {
 		return err
 	}
 

@@ -25,8 +25,6 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// Process all configs once and exit (suitable for Kubernetes Job execution)
 	webhook.NewWebhookService(configs).Run()
-
-	// wait until program is terminated
-	<-make(chan bool)
 }

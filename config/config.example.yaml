@@ -23,9 +23,9 @@
 - mailClientConfig:
     # Gmail address used by the mail client
     mail: "your-account@gmail.com"
-    # Path to OAuth2 credentials JSON inside the running environment/container
-    # Ensure this file is mounted or available before running the service
-    credentialsPath: "/secrets/gmail/credentials.json"
+    # Path to the directory containing OAuth2 credentials JSON inside the container
+    # Mount a Kubernetes Secret at this directory (e.g., /secrets/mail)
+    credentialsPath: "/secrets/mail"
 
   mailSelectors:
     # Extract numeric Order ID from the email subject
@@ -92,17 +92,11 @@
         "senderDomain": "${SenderDomain}"
       }
 
-  # Interval between repeated executions for this config.
-  # Default is "0s" (run continuously); increase for polling behavior.
-  intervalBetweenExecutions: "0s"
-
-  # If true, process once and exit logic for this config. If false, continue looping.
-  runOnce: true
 
 # Example 2: Minimal configuration (GET with query param)
 - mailClientConfig:
     mail: "your-account@gmail.com"
-    credentialsPath: "/secrets/gmail/credentials.json"
+    credentialsPath: "/secrets/mail"
 
   mailSelectors:
     # Capture a URL from the email body (full match)
@@ -122,5 +116,3 @@
       - key: "url"
         value: "${Link}"
 
-  intervalBetweenExecutions: "60s"
-  runOnce: false

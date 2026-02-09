@@ -37,7 +37,7 @@ configs: []
 #   - mailClientConfig:
 #       mail: "your-account@gmail.com"
 #       # Ensure the credentials secret is mounted into the Pod accordingly
-#       credentialsPath: "/secrets/gmail/credentials.json"
+#       credentialsPath: "/secrets/mail"
 #     mailSelectors:
 #       - name: "OrderId"
 #         type: "subjectRegex"
@@ -63,5 +63,3 @@ configs: []
 #         {
 #           "amount": "${Amount}"
 #         }
-#     intervalBetweenExecutions: "0s"
-#     runOnce: true

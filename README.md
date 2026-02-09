@@ -43,9 +43,7 @@ Example:
 ```yaml
 - mailClientConfig:
     mail: "example@gmail.com"
-    credentialsPath: "/path/to/client_secrets/file/"
-  runOnce: false
-  intervalBetweenExecutions: 0s
+    credentialsPath: "/secrets/mail"
 
   mailSelectors:
     - name: "OrderId"

@@ -198,10 +198,8 @@ func Test_constructRequest(t *testing.T) {
 					Body: "testValue",
 				},
 				config: &config.Config{
-					MailClientConfig:          config.MailClientConfig{},
-					MailSelectors:             nil,
-					IntervalBetweenExecutions: "",
-					RunOnce:                   false,
+					MailClientConfig: config.MailClientConfig{},
+					MailSelectors:    nil,
 					Callback: config.Callback{
 						Url:    testUrl,
 						Method: testMethod,

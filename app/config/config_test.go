@@ -33,8 +33,6 @@ func TestNewConfig(t *testing.T) {
   - name: "test2"
     type: "bodyRegex"
     pattern: ".*"
-  runOnce: true
-  intervalBetweenExecutions: 20s
   callback:
     url: "https://example.com/callback"
     method: "POST"
@@ -70,8 +68,6 @@ func TestNewConfig(t *testing.T) {
 							Scope:        false,
 						},
 					},
-					IntervalBetweenExecutions: "20s",
-					RunOnce:                   true,
 					Callback: Callback{
 						Url:     "https://example.com/callback",
 						Method:  "POST",
@@ -119,8 +115,6 @@ func TestNewConfig(t *testing.T) {
 							Scope:        true,
 						},
 					},
-					IntervalBetweenExecutions: "0s",
-					RunOnce:                   false,
 					Callback: Callback{
 						Url:     "https://example.com/callback",
 						Method:  "POST",

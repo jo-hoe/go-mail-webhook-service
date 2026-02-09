@@ -45,7 +45,7 @@ affinity: {}
 extraVolumeMounts: []
 extraVolumes: []
 
-# -- Controls rendering of a Kubernetes Job that runs the app to completion (requires RunOnce=true in configs)
+# -- Controls rendering of a Kubernetes Job that runs the app to completion
 job:
   enabled: false
   backoffLimit: 0
@@ -54,7 +54,7 @@ job:
   annotations: {}
   labels: {}
 
-# -- Controls rendering of a Kubernetes CronJob that runs the app on a schedule (ensure RunOnce=true in configs)
+# -- Controls rendering of a Kubernetes CronJob that runs the app on a schedule
 cronjob:
   enabled: false
   schedule: "*/5 * * * *"
@@ -71,6 +71,17 @@ env: []
 # - name: HTTP_PROXY
 #   value: http://proxy:8080
 
+# Mail client credentials secret options
+# If you want this chart to create a Secret from base64-encoded mail client credentials file,
+# set create=true and provide credentialsBase64. Optionally set a custom name.
+# The secret will be mounted at mountPath (default: /secrets/mail).
+mailClientCredentials:
+  create: false
+  name: ""
+  credentialsBase64: ""
+  filename: "client_secret.json"
+  mountPath: "/secrets/mail"
+
 # -- The core application configuration. This renders verbatim into config/config.yaml (array of objects).
 # Adjust credentialsPath to match how you mount secrets into the Pod.
 configs: []
@@ -78,7 +89,8 @@ configs: []
 # configs:
 #   - mailClientConfig:
 #       mail: "example@gmail.com"
-#       credentialsPath: "/secrets/gmail/credentials.json"
+#       # Set credentialsPath to the directory where the Secret is mounted
+#       credentialsPath: "/secrets/mail"
 #     mailSelectors:
 #       - name: "OrderId"
 #         type: "subjectRegex"
@@ -100,11 +112,9 @@ configs: []
 #           value: "application/json"
 #       queryParams:
 #         - key: "source"
-#           value: "gmail"
+#           value: "mail"
 #       body: |
 #         {
 #           "orderId": "${OrderId}",
 #           "amount": "${Amount}"
 #         }
-#     intervalBetweenExecutions: "0s"
-#     runOnce: true
