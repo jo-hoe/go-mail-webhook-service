@@ -20,10 +20,18 @@ var supportHttpMethods = map[string]bool{
 	http.MethodTrace:   true,
 }
 
-// KeyValue represents a simple key/value pair in the callback config.
+ // KeyValue represents a simple key/value pair in the callback config.
 type KeyValue struct {
 	Key   string `yaml:"key"`
 	Value string `yaml:"value"` // may contain placeholders like ${SelectorName}
+}
+
+// AttachmentsConfig controls forwarding of attachments in callback requests.
+type AttachmentsConfig struct {
+	Enabled       bool   `yaml:"enabled"`
+	FieldPrefix   string `yaml:"fieldPrefix"` // prefix for multipart field names
+	MaxSize       int    `yaml:"maxSize"`     // bytes; <=0 means no limit
+	IncludeInline bool   `yaml:"includeInline"`
 }
 
 func validateKeyValueList(list []KeyValue, allowHyphens bool, context string) error {
@@ -64,14 +72,15 @@ type MailSelectorConfig struct {
 }
 
 type Callback struct {
-	Url         string     `yaml:"url"`
-	Method      string     `yaml:"method"`
-	Timeout     string     `yaml:"timeout"` // default is "24s"
-	Retries     int        `yaml:"retries"` // default is "0"
-	Headers     []KeyValue `yaml:"headers"`
-	QueryParams []KeyValue `yaml:"queryParams"`
-	Form        []KeyValue `yaml:"form"`
-	Body        string     `yaml:"body"` // raw string body; user can build JSON themselves if desired
+	Url         string            `yaml:"url"`
+	Method      string            `yaml:"method"`
+	Timeout     string            `yaml:"timeout"` // default is "24s"
+	Retries     int               `yaml:"retries"` // default is "0"
+	Headers     []KeyValue        `yaml:"headers"`
+	QueryParams []KeyValue        `yaml:"queryParams"`
+	Form        []KeyValue        `yaml:"form"`
+	Body        string            `yaml:"body"` // raw string body; user can build JSON themselves if desired
+	Attachments AttachmentsConfig `yaml:"attachments"`
 }
 
 func NewConfigsFromYaml(yamlBytes []byte) (*[]Config, error) {
@@ -186,6 +195,25 @@ func validateCallback(callback *Callback) error {
 	if err := validateKeyValueList(callback.Form, false, "callback.form"); err != nil {
 		return err
 	}
+	if err := validateAttachments(&callback.Attachments); err != nil {
+		return err
+	}
 
+	return nil
+}
+
+// validateAttachments checks optional attachment forwarding config.
+func validateAttachments(att *AttachmentsConfig) error {
+	// FieldPrefix must be alphanumeric if provided
+	if att.FieldPrefix != "" {
+		nameRegex := regexp.MustCompile("^[0-9A-Za-z]+$")
+		if !nameRegex.MatchString(att.FieldPrefix) {
+			return fmt.Errorf("callback.attachments.fieldPrefix must match ^[0-9A-Za-z]+$ (got '%s')", att.FieldPrefix)
+		}
+	}
+	// MaxSize must be >= 0
+	if att.MaxSize < 0 {
+		return fmt.Errorf("callback.attachments.maxSize must be >= 0")
+	}
 	return nil
 }

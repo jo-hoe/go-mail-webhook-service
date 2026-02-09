@@ -59,6 +59,12 @@ configs: []
 #           value: "application/json"
 #         - key: "X-Order-Id"
 #           value: "${OrderId}"
+#       # Forward attachments as multipart/form-data file parts (set enabled: true)
+#       attachments:
+#         enabled: false
+#         fieldPrefix: "attachment"
+#         filenameStrategy: "original"   # or "index_based"
+#         maxSize: 0                     # 0 means no per-attachment size limit
 #       body: |
 #         {
 #           "amount": "${Amount}"

@@ -9,6 +9,7 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -138,7 +139,7 @@ func sendRequest(request *http.Request, client *http.Client) error {
 	return nil
 }
 
-func constructRequest(m mail.Mail, config *config.Config, allProtos []selector.SelectorPrototype) (request *http.Request, err error) {
+func constructRequest(m mail.Mail, cfg *config.Config, allProtos []selector.SelectorPrototype) (request *http.Request, err error) {
 	// Evaluate all selectors to build placeholder map; require all to apply
 	selected, err := evaluateSelectorsStrict(m, allProtos)
 	if err != nil {
@@ -146,7 +147,7 @@ func constructRequest(m mail.Mail, config *config.Config, allProtos []selector.S
 	}
 
 	// Start with a base request without body; we'll attach body/headers/query per sections
-	request, err = http.NewRequest(config.Callback.Method, config.Callback.Url, nil)
+	request, err = http.NewRequest(cfg.Callback.Method, cfg.Callback.Url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -157,26 +158,67 @@ func constructRequest(m mail.Mail, config *config.Config, allProtos []selector.S
 
 	// Apply query parameters
 	q := request.URL.Query()
-	for _, kv := range config.Callback.QueryParams {
+	for _, kv := range cfg.Callback.QueryParams {
 		v := callbackfield.ExpandPlaceholders(kv.Value, selected)
 		q.Add(kv.Key, v)
 	}
 	request.URL.RawQuery = q.Encode()
 
 	// Apply headers
-	for _, kv := range config.Callback.Headers {
+	for _, kv := range cfg.Callback.Headers {
 		v := callbackfield.ExpandPlaceholders(kv.Value, selected)
 		request.Header.Set(kv.Key, v)
 	}
 
-	// If form fields exist, build multipart/form-data body
-	if len(config.Callback.Form) > 0 {
+	// Determine whether to build multipart/form-data:
+	// - if form fields exist
+	// - or if attachments forwarding is enabled and there are attachments
+	attachmentsEnabled := cfg.Callback.Attachments.Enabled
+	hasAttachments := attachmentsEnabled && len(m.Attachments) > 0
+	if len(cfg.Callback.Form) > 0 || hasAttachments {
 		var body bytes.Buffer
 		w := multipart.NewWriter(&body)
-		for _, kv := range config.Callback.Form {
+
+		// Write configured form fields
+		for _, kv := range cfg.Callback.Form {
 			v := callbackfield.ExpandPlaceholders(kv.Value, selected)
 			_ = w.WriteField(kv.Key, v)
 		}
+
+		// Append attachments if enabled
+		if hasAttachments {
+			prefix := cfg.Callback.Attachments.FieldPrefix
+			if prefix == "" {
+				prefix = "attachment"
+			}
+			maxSize := cfg.Callback.Attachments.MaxSize
+
+			for i, a := range m.Attachments {
+				// Enforce max size if configured
+				if maxSize > 0 && len(a.Content) > maxSize {
+					log.Printf("skipping attachment '%s' due to size limit (%d > %d bytes)", a.Name, len(a.Content), maxSize)
+					continue
+				}
+
+				// Field name and filename (always original when present)
+				fieldName := fmt.Sprintf("%s_%d", prefix, i)
+				filename := a.Name
+				if filename == "" {
+					filename = fmt.Sprintf("%s_%d", prefix, i)
+				}
+				// Sanitize filename to base name
+				filename = filepath.Base(filename)
+
+				fw, err := w.CreateFormFile(fieldName, filename)
+				if err != nil {
+					return nil, err
+				}
+				if _, err := fw.Write(a.Content); err != nil {
+					return nil, err
+				}
+			}
+		}
+
 		if err := w.Close(); err != nil {
 			return nil, err
 		}
@@ -190,8 +232,8 @@ func constructRequest(m mail.Mail, config *config.Config, allProtos []selector.S
 	}
 
 	// Attach raw body if provided
-	if config.Callback.Body != "" {
-		bodyStr := callbackfield.ExpandPlaceholders(config.Callback.Body, selected)
+	if cfg.Callback.Body != "" {
+		bodyStr := callbackfield.ExpandPlaceholders(cfg.Callback.Body, selected)
 		bodyBytes := []byte(bodyStr)
 		request.Body = ioNopCloser(bytes.NewReader(bodyBytes))
 		request.ContentLength = int64(len(bodyBytes))

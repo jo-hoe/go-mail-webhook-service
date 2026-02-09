@@ -17,6 +17,7 @@
 # - callback.headers: list of {key, value} where key allows alphanumeric and hyphens
 # - callback.queryParams: list of {key, value} where key is alphanumeric only
 # - callback.form: list of {key, value} (multipart/form-data) where key is alphanumeric only
+# - callback.attachments: configuration for forwarding email attachments (multipart file parts)
 # - callback.body: raw string body; you can build JSON or any text yourself and include placeholders
 
 # Example 1: Comprehensive configuration demonstrating selectors and structured callback sections
@@ -85,7 +86,16 @@
       - key: "note"
         value: "Processed order ${OrderId}"
 
+    # Forward attachments as multipart/form-data file parts
+    # Note: When attachments.enabled is true (or form has fields), the request will be multipart/form-data.
+    # If you also need to send a structured payload, include it as form fields.
+    attachments:
+      enabled: false
+      fieldPrefix: "attachment"      # Parts will be named like "attachment_0", "attachment_1", ...
+      maxSize: 0                     # 0 or negative means no per-attachment size limit
+
     # Raw body: build JSON yourself using placeholders if needed
+    # Note: Raw body is only used when not sending multipart/form-data (i.e., no form fields and no attachments).
     body: |
       {
         "amount": "${Amount}",
