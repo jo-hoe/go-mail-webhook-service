@@ -32,10 +32,6 @@ func (s *AttachmentNameRegexSelector) Type() string {
 	return "attachmentNameRegex"
 }
 
-func (s *AttachmentNameRegexSelector) IsScope() bool {
-	return s.proto.scope
-}
-
 // SelectValue scans attachments by filename; on first match returns base64 of content.
 func (s *AttachmentNameRegexSelector) SelectValue(m mail.Mail) (string, error) {
 	for _, att := range m.Attachments {

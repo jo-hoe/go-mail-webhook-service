@@ -46,10 +46,6 @@ func (s *RegexSelector) Type() string {
 	return s.proto.selType
 }
 
-func (s *RegexSelector) IsScope() bool {
-	return s.proto.scope
-}
-
 // SelectValue applies the regex against the configured target of the mail.
 // If it matches, it returns either the full match (captureGroup == 0)
 // or the specified capture group (>0). Otherwise returns ErrNotMatched.
