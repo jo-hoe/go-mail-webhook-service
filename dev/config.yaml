@@ -54,12 +54,14 @@ configs: []
 #       method: "POST"
 #       timeout: "24s"
 #       retries: 0
-#       fields:
-#         - type: "headerValue"
-#           name: "X-Order-Id"
+#       headers:
+#         - key: "Content-Type"
+#           value: "application/json"
+#         - key: "X-Order-Id"
 #           value: "${OrderId}"
-#         - type: "jsonValue"
-#           name: "amount"
-#           value: "${Amount}"
+#       body: |
+#         {
+#           "amount": "${Amount}"
+#         }
 #     intervalBetweenExecutions: "0s"
 #     runOnce: true

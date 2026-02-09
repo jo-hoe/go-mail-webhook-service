@@ -166,18 +166,7 @@ func constructRequest(m mail.Mail, config *config.Config, allProtos []selector.S
 	// Evaluate all selectors to build placeholder map
 	selected := evaluateSelectors(m, allProtos)
 
-	// Build field prototypes and accumulate request parts
-	fieldProtos, err := callbackfield.NewFieldPrototypes(config.Callback.Fields)
-	if err != nil {
-		return nil, err
-	}
-	parts := callbackfield.NewRequestBuildParts()
-	for _, p := range fieldProtos {
-		f := p.NewInstance()
-		f.Apply(selected, parts)
-	}
-
-	// Start with a base request without body; we'll attach body/headers/query per fields
+	// Start with a base request without body; we'll attach body/headers/query per sections
 	request, err = http.NewRequest(config.Callback.Method, config.Callback.Url, nil)
 	if err != nil {
 		return nil, err
@@ -189,30 +178,25 @@ func constructRequest(m mail.Mail, config *config.Config, allProtos []selector.S
 
 	// Apply query parameters
 	q := request.URL.Query()
-	for name, values := range parts.Query {
-		for _, v := range values {
-			q.Add(name, v)
-		}
+	for _, kv := range config.Callback.QueryParams {
+		v := callbackfield.ExpandPlaceholders(kv.Value, selected)
+		q.Add(kv.Key, v)
 	}
 	request.URL.RawQuery = q.Encode()
 
 	// Apply headers
-	for name, value := range parts.Headers {
-		request.Header.Set(name, value)
+	for _, kv := range config.Callback.Headers {
+		v := callbackfield.ExpandPlaceholders(kv.Value, selected)
+		request.Header.Set(kv.Key, v)
 	}
 
 	// If form fields exist, build multipart/form-data body
-	if len(parts.Form) > 0 {
+	if len(config.Callback.Form) > 0 {
 		var body bytes.Buffer
 		w := multipart.NewWriter(&body)
-		for name, values := range parts.Form {
-			for _, v := range values {
-				_ = w.WriteField(name, v)
-			}
-		}
-		// Also include JSON fields as simple form fields if any
-		for name, value := range parts.JSON {
-			_ = w.WriteField(name, value)
+		for _, kv := range config.Callback.Form {
+			v := callbackfield.ExpandPlaceholders(kv.Value, selected)
+			_ = w.WriteField(kv.Key, v)
 		}
 		if err := w.Close(); err != nil {
 			return nil, err
@@ -226,18 +210,13 @@ func constructRequest(m mail.Mail, config *config.Config, allProtos []selector.S
 		return request, nil
 	}
 
-	// Attach JSON body if any jsonValue fields were provided
-	if len(parts.JSON) > 0 {
-		bodyBytes, mErr := json.Marshal(parts.JSON)
-		if mErr != nil {
-			return nil, mErr
-		}
+	// Attach raw body if provided
+	if config.Callback.Body != "" {
+		bodyStr := callbackfield.ExpandPlaceholders(config.Callback.Body, selected)
+		bodyBytes := []byte(bodyStr)
 		request.Body = ioNopCloser(bytes.NewReader(bodyBytes))
 		request.ContentLength = int64(len(bodyBytes))
-		// Ensure Content-Type is set for JSON body if not provided by fields
-		if request.Header.Get("Content-Type") == "" {
-			request.Header.Set("Content-Type", "application/json")
-		}
+		// Do not set Content-Type automatically for raw body; user can supply via headers
 	}
 
 	return request, nil

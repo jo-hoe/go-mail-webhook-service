@@ -20,38 +20,26 @@ var supportHttpMethods = map[string]bool{
 	http.MethodTrace:   true,
 }
 
-// CallbackField describes how to contribute to the outgoing request.
-type CallbackField struct {
-	Name  string `yaml:"name"`
-	Type  string `yaml:"type"`  // "jsonValue" | "headerValue" | "queryParamValue"
-	Value string `yaml:"value"` // may contain placeholders like ${selectorName}
+ // KeyValue represents a simple key/value pair in the callback config.
+type KeyValue struct {
+	Key   string `yaml:"key"`
+	Value string `yaml:"value"` // may contain placeholders like ${SelectorName}
 }
 
-func validateCallbackFields(fields []CallbackField) error {
-	for _, f := range fields {
-		switch f.Type {
-		case "jsonValue", "queryParamValue":
-			// Name must be alphanumeric
-			nameRegex := regexp.MustCompile("^[0-9A-Za-z]+$")
-			if !nameRegex.MatchString(f.Name) {
-				return fmt.Errorf("callback.fields[%s] invalid name for type %s: must match ^[0-9A-Za-z]+$", f.Name, f.Type)
-			}
-		case "headerValue":
-			// Allow hyphens in header names
-			nameRegex := regexp.MustCompile("^[0-9A-Za-z-]+$")
-			if !nameRegex.MatchString(f.Name) {
-				return fmt.Errorf("callback.fields[%s] invalid header name: must match ^[0-9A-Za-z-]+$", f.Name)
-			}
-		case "formValue":
-			// treat like jsonValue regarding name rules
-			nameRegex := regexp.MustCompile("^[0-9A-Za-z]+$")
-			if !nameRegex.MatchString(f.Name) {
-				return fmt.Errorf("callback.fields[%s] invalid name for type %s: must match ^[0-9A-Za-z]+$", f.Name, f.Type)
-			}
-		default:
-			return fmt.Errorf("callback.fields[%s] invalid type: %s (supported: jsonValue, headerValue, queryParamValue, formValue)", f.Name, f.Type)
+func validateKeyValueList(list []KeyValue, allowHyphens bool, context string) error {
+	for _, kv := range list {
+		var nameRegex *regexp.Regexp
+		if allowHyphens {
+			nameRegex = regexp.MustCompile("^[0-9A-Za-z-]+$")
+		} else {
+			nameRegex = regexp.MustCompile("^[0-9A-Za-z]+$")
 		}
-		// f.Value can be any string; placeholders are validated at runtime
+		if !nameRegex.MatchString(kv.Key) {
+			if allowHyphens {
+				return fmt.Errorf("%s[%s] invalid key: must match ^[0-9A-Za-z-]+$", context, kv.Key)
+			}
+			return fmt.Errorf("%s[%s] invalid key: must match ^[0-9A-Za-z]+$", context, kv.Key)
+		}
 	}
 	return nil
 }
@@ -78,11 +66,14 @@ type MailSelectorConfig struct {
 }
 
 type Callback struct {
-	Url     string          `yaml:"url"`
-	Method  string          `yaml:"method"`
-	Timeout string          `yaml:"timeout"` // default is "24s"
-	Retries int             `yaml:"retries"` // default is "0"
-	Fields  []CallbackField `yaml:"fields"`
+	Url         string     `yaml:"url"`
+	Method      string     `yaml:"method"`
+	Timeout     string     `yaml:"timeout"` // default is "24s"
+	Retries     int        `yaml:"retries"` // default is "0"
+	Headers     []KeyValue `yaml:"headers"`
+	QueryParams []KeyValue `yaml:"queryParams"`
+	Form        []KeyValue `yaml:"form"`
+	Body        string     `yaml:"body"` // raw string body; user can build JSON themselves if desired
 }
 
 func NewConfigsFromYaml(yamlBytes []byte) (*[]Config, error) {
@@ -195,8 +186,14 @@ func validateCallback(callback *Callback) error {
 		return fmt.Errorf("callback.retries must be greater than or equal to 0")
 	}
 
-	// Validate fields, if provided
-	if err := validateCallbackFields(callback.Fields); err != nil {
+	// Validate structured callback sections
+	if err := validateKeyValueList(callback.Headers, true, "callback.headers"); err != nil {
+		return err
+	}
+	if err := validateKeyValueList(callback.QueryParams, false, "callback.queryParams"); err != nil {
+		return err
+	}
+	if err := validateKeyValueList(callback.Form, false, "callback.form"); err != nil {
 		return err
 	}
 

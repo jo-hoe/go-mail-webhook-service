@@ -32,38 +32,63 @@ If you want to run the project without Docker, you can install [Golang](https://
 
 ## Configuration Example
 
-Create a file with the name `config.yaml` in directory `config`.
-An example of the configuration file is described below.
+Create a file `config/config.yaml`. The application supports structured callback sections and selector-based placeholders.
+
+Placeholders:
+- Use ${SelectorName} in headers/queryParams/form/body to substitute values extracted by selectors.
+- Selector names must be alphanumeric only (^[0-9A-Za-z]+$).
+
+Example:
 
 ```yaml
-- mailClientConfig: 
-    mail: "example@gmail.com" # mail address to be checked
-    credentialsPath: "/path/to/client_secrets/file/" # location of the credentials files for the mail client, can also be a location relative to the current directory
-  runOnce: false # if set to true, the service will run once and exit, default is false
-  intervalBetweenExecutions: 0s # interval between executions of the service, default is 0 seconds
-  subjectSelectorRegex: ".*" # regex to match the subject of the mail
-  bodySelectorRegexList: # regex to match the body of the mail, if no body is needed do not set this
-  - name: "test" # name json attribute in the callback 
-    regex: "[a-z]{0,6}" # regex which matches the body, is set as value of the json attribute
-  - name: "test2"
-    regex: ".*"
+- mailClientConfig:
+    mail: "example@gmail.com"
+    credentialsPath: "/path/to/client_secrets/file/"
+  runOnce: false
+  intervalBetweenExecutions: 0s
+
+  mailSelectors:
+    - name: "OrderId"
+      type: "subjectRegex"
+      pattern: "Order ([0-9]+) confirmed"
+      captureGroup: 1
+      scope: true
+    - name: "Amount"
+      type: "bodyRegex"
+      pattern: "Total: \\$([0-9]+\\.[0-9]{2})"
+      captureGroup: 1
+      scope: false
+
   callback:
-    url: "https://example.com/callback" # callback url
-    method: "POST" # method of the callback, has to be provided as uppercase string
-    timeout: 24s # timeout for the callback, default is 24 seconds
-    retries: 0 # number of retries for the callback, default is 0
-    fields:
-      - name: "name1" # arbitrary name of the field, will be used as json attribute in the callback
-        type: "jsonValue" # type of the field, currently only jsonValue is supported, which means that the value will be set as value of the json attribute in the callback
-        value: "value1" #
-      - name: "name2"
-        type: "headerValue" # type of the field, currently only headerValue is supported, which means that the value will be set as value of the header in the callback
-        value: "ContentType: application/json" # name of the header, which value will be set as value of the header in the callback
-      - name: "name3"
-        type: "queryParamValue"
-        value: "value3" # value of the query parameter, which will be set as value of the query
-        
+    url: "https://example.com/callback"
+    method: "POST"
+    timeout: "24s"
+    retries: 0
+
+    headers:
+      - key: "X-Order-Id"
+        value: "${OrderId}"
+      - key: "Content-Type"
+        value: "application/json"
+
+    queryParams:
+      - key: "campaign"
+        value: "winter"
+
+    form:
+      - key: "note"
+        value: "Processed order ${OrderId}"
+
+    body: |
+      {
+        "amount": "${Amount}"
+      }
 ```
+
+Notes:
+- headers keys allow alphanumeric and hyphens.
+- queryParams and form keys must be alphanumeric only.
+- body is a raw string; set Content-Type via headers when needed (e.g., application/json).
 
 ## How to use
 

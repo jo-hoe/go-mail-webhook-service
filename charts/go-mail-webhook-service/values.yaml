@@ -95,15 +95,16 @@ configs: []
 #       method: "POST"
 #       timeout: "24s"
 #       retries: 0
-#       fields:
-#         - type: "headerValue"
-#           name: "X-Order-Id"
-#           value: "${OrderId}"
-#         - type: "jsonValue"
-#           name: "amount"
-#           value: "${Amount}"
-#         - type: "queryParamValue"
-#           name: "source"
+#       headers:
+#         - key: "Content-Type"
+#           value: "application/json"
+#       queryParams:
+#         - key: "source"
 #           value: "gmail"
+#       body: |
+#         {
+#           "orderId": "${OrderId}",
+#           "amount": "${Amount}"
+#         }
 #     intervalBetweenExecutions: "0s"
 #     runOnce: true

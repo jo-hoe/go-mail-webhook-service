@@ -7,18 +7,19 @@
 # - Each config entry runs independently with its own selectors and callback.
 # - Time values must be valid Go duration strings, e.g. "24s", "1m", "2h45m".
 # - Supported selector types: "subjectRegex", "bodyRegex", "attachmentNameRegex", "senderRegex"
-# - Supported callback field types: "jsonValue", "headerValue", "queryParamValue", "formValue"
 # - Supported HTTP methods: GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS, TRACE
 #
 # Placeholders:
-# - Use ${SelectorName} in callback.fields.value to reference a selector's extracted value.
+# - Use ${SelectorName} in callback values (headers/queryParams/form/body) to reference a selector's extracted value.
 # - Selector names must be alphanumeric only (^[0-9A-Za-z]+$).
 #
-# Name rules for fields:
-# - jsonValue/queryParamValue/formValue field names: alphanumeric only (^[0-9A-Za-z]+$)
-# - headerValue field names: alphanumeric and hyphens allowed (^[0-9A-Za-z-]+$)
+# Callback schema:
+# - callback.headers: list of {key, value} where key allows alphanumeric and hyphens
+# - callback.queryParams: list of {key, value} where key is alphanumeric only
+# - callback.form: list of {key, value} (multipart/form-data) where key is alphanumeric only
+# - callback.body: raw string body; you can build JSON or any text yourself and include placeholders
 
-# Example 1: Comprehensive configuration demonstrating all selector and field types
+# Example 1: Comprehensive configuration demonstrating selectors and structured callback sections
 - mailClientConfig:
     # Gmail address used by the mail client
     mail: "your-account@gmail.com"
@@ -32,7 +33,7 @@
       type: "subjectRegex"
       pattern: "Order ([0-9]+) confirmed"
       captureGroup: 1
-      scope: true   # true may select all matching mails globally; false limits scope
+      scope: true   # true means this selector must match for the mail to be in scope
 
     # Extract amount value from the email body
     - name: "Amount"
@@ -64,32 +65,32 @@
     timeout: "24s"
     # Number of retry attempts for the callback. Must be >= 0. Default is 0.
     retries: 0
-    # Fields to include in the outgoing request, supporting placeholders like ${OrderId}
-    fields:
+
+    # Structured sections
+    headers:
       # Header example: hyphens allowed in header names
-      - type: "headerValue"
-        name: "X-Order-Id"
+      - key: "X-Order-Id"
         value: "${OrderId}"
+      # Often you may need to set a content type when using raw body
+      - key: "Content-Type"
+        value: "application/json"
 
-      # JSON body example: name must be alphanumeric
-      - type: "jsonValue"
-        name: "amount"
-        value: "${Amount}"
-
-      # Query parameter example
-      - type: "queryParamValue"
-        name: "fileNum"
+    queryParams:
+      # Query parameter example (alphanumeric key)
+      - key: "fileNum"
         value: "${FileNum}"
 
-      # Include sender domain in JSON body
-      - type: "jsonValue"
-        name: "senderDomain"
-        value: "${SenderDomain}"
-
-      # Form field example (sent as application/x-www-form-urlencoded)
-      - type: "formValue"
-        name: "note"
+    form:
+      # Form field example (sent as multipart/form-data)
+      - key: "note"
         value: "Processed order ${OrderId}"
+
+    # Raw body: build JSON yourself using placeholders if needed
+    body: |
+      {
+        "amount": "${Amount}",
+        "senderDomain": "${SenderDomain}"
+      }
 
   # Interval between repeated executions for this config.
   # Default is "0s" (run continuously); increase for polling behavior.
@@ -98,7 +99,7 @@
   # If true, process once and exit logic for this config. If false, continue looping.
   runOnce: true
 
-# Example 2: Minimal configuration
+# Example 2: Minimal configuration (GET with query param)
 - mailClientConfig:
     mail: "your-account@gmail.com"
     credentialsPath: "/secrets/gmail/credentials.json"
@@ -116,9 +117,9 @@
     method: "GET"
     timeout: "10s"
     retries: 1
-    fields:
-      - type: "queryParamValue"
-        name: "url"
+
+    queryParams:
+      - key: "url"
         value: "${Link}"
 
   intervalBetweenExecutions: "60s"
