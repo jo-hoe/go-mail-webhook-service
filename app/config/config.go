@@ -20,7 +20,7 @@ var supportHttpMethods = map[string]bool{
 	http.MethodTrace:   true,
 }
 
- // KeyValue represents a simple key/value pair in the callback config.
+// KeyValue represents a simple key/value pair in the callback config.
 type KeyValue struct {
 	Key   string `yaml:"key"`
 	Value string `yaml:"value"` // may contain placeholders like ${SelectorName}
@@ -45,11 +45,11 @@ func validateKeyValueList(list []KeyValue, allowHyphens bool, context string) er
 }
 
 type Config struct {
-	MailClientConfig          MailClientConfig        `yaml:"mailClientConfig"`
-	MailSelectors             []MailSelectorConfig    `yaml:"mailSelectors"`
-	Callback                  Callback                `yaml:"callback"`
-	IntervalBetweenExecutions string                  `yaml:"intervalBetweenExecutions"` // default is "0s"
-	RunOnce                   bool                    `yaml:"runOnce"`
+	MailClientConfig          MailClientConfig     `yaml:"mailClientConfig"`
+	MailSelectors             []MailSelectorConfig `yaml:"mailSelectors"`
+	Callback                  Callback             `yaml:"callback"`
+	IntervalBetweenExecutions string               `yaml:"intervalBetweenExecutions"` // default is "0s"
+	RunOnce                   bool                 `yaml:"runOnce"`
 }
 
 type MailClientConfig struct {

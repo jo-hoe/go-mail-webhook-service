@@ -20,7 +20,7 @@ import (
 
 func Test_filterMailsByScopeSelectors(t *testing.T) {
 	type args struct {
-		mails      []mail.Mail
+		mails       []mail.Mail
 		scopeProtos []selector.SelectorPrototype
 	}
 	tests := []struct {
@@ -68,7 +68,7 @@ func Test_filterMailsByScopeSelectors(t *testing.T) {
 
 func Test_collectSelectorValues(t *testing.T) {
 	type args struct {
-		mail          mail.Mail
+		mail           mail.Mail
 		nonScopeProtos []selector.SelectorPrototype
 	}
 	tests := []struct {

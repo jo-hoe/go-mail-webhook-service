@@ -30,9 +30,9 @@ type RequestBuildParts struct {
 // NewRequestBuildParts initializes an empty RequestBuildParts.
 func NewRequestBuildParts() *RequestBuildParts {
 	return &RequestBuildParts{
-		JSON:           make(map[string]string),
-		Headers:        make(map[string]string),
-		Query:          make(map[string][]string),
-		Form:           make(map[string][]string),
+		JSON:    make(map[string]string),
+		Headers: make(map[string]string),
+		Query:   make(map[string][]string),
+		Form:    make(map[string][]string),
 	}
 }

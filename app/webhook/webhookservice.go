@@ -5,10 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
-	"net/http"
-	"mime/multipart"
 	"github.com/jo-hoe/go-mail-webhook-service/app/callbackfield"
+	"log"
+	"mime/multipart"
+	"net/http"
 	"sync"
 	"time"
 
@@ -321,7 +321,6 @@ func evaluateSelectors(m mail.Mail, allProtos []selector.SelectorPrototype) map[
 	}
 	return result
 }
-
 
 // ioNopCloser wraps a Reader to satisfy io.ReadCloser without allocating a full NopCloser dependency.
 type nopCloser struct{ *bytes.Reader }
