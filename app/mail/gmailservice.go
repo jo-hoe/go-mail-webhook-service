@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	gomail "net/mail"
 	"os"
 	"path"
 	"time"
@@ -60,11 +61,13 @@ func (service *GmailService) GetAllUnreadMail(context context.Context) ([]Mail, 
 		}
 
 		subject := extractSubject(fullMessage.Payload.Headers)
+		sender := extractSender(fullMessage.Payload.Headers)
 		body := extractPlainTextBody(fullMessage.Payload.Parts)
 		attachments := extractAttachments(gmailService, user, message.Id, fullMessage.Payload.Parts)
 
 		result = append(result, Mail{
 			Id:          message.Id,
+			Sender:      sender,
 			Subject:     subject,
 			Body:        body,
 			Attachments: attachments,
@@ -94,6 +97,18 @@ func (service *GmailService) MarkMailAsRead(context context.Context, mail Mail) 
 func extractSubject(headers []*gmail.MessagePartHeader) string {
 	for _, header := range headers {
 		if header.Name == "Subject" {
+			return header.Value
+		}
+	}
+	return ""
+}
+
+func extractSender(headers []*gmail.MessagePartHeader) string {
+	for _, header := range headers {
+		if header.Name == "From" {
+			if addr, err := gomail.ParseAddress(header.Value); err == nil && addr != nil {
+				return addr.Address
+			}
 			return header.Value
 		}
 	}

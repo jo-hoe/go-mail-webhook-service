@@ -7,13 +7,13 @@ import (
 	"github.com/jo-hoe/go-mail-webhook-service/app/config"
 )
 
-// NewSelectorPrototypes constructs immutable selector prototypes from configuration.
-// Supports "subjectRegex" and "bodyRegex".
-func NewSelectorPrototypes(cfgs []config.MailSelectorConfig) ([]SelectorPrototype, error) {
+	// NewSelectorPrototypes constructs immutable selector prototypes from configuration.
+	// Supports "subjectRegex", "bodyRegex", "senderRegex", and "attachmentNameRegex".
+	func NewSelectorPrototypes(cfgs []config.MailSelectorConfig) ([]SelectorPrototype, error) {
 	prototypes := make([]SelectorPrototype, 0, len(cfgs))
 	for _, c := range cfgs {
 		switch c.Type {
-		case "subjectRegex", "bodyRegex":
+		case "subjectRegex", "bodyRegex", "senderRegex":
 			re, err := regexp.Compile(c.Pattern)
 			if err != nil {
 				return nil, fmt.Errorf("failed to compile regex for selector '%s': %w", c.Name, err)
@@ -21,8 +21,10 @@ func NewSelectorPrototypes(cfgs []config.MailSelectorConfig) ([]SelectorPrototyp
 			var target regexTarget
 			if c.Type == "subjectRegex" {
 				target = targetSubject
-			} else {
+			} else if c.Type == "bodyRegex" {
 				target = targetBody
+			} else {
+				target = targetSender
 			}
 			prototypes = append(prototypes, &RegexSelectorPrototype{
 				name:         c.Name,

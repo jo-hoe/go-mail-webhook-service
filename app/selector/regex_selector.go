@@ -12,13 +12,14 @@ type regexTarget int
 const (
 	targetSubject regexTarget = iota
 	targetBody
+	targetSender
 )
 
 // RegexSelectorPrototype is an immutable, reusable configuration for a regex selector.
 // It holds compiled regex and static attributes. Safe to share across goroutines.
 type RegexSelectorPrototype struct {
 	name         string
-	selType      string // "subjectRegex" or "bodyRegex"
+	selType      string // "subjectRegex" | "bodyRegex" | "senderRegex"
 	target       regexTarget
 	scope        bool
 	captureGroup int
@@ -61,6 +62,8 @@ func (s *RegexSelector) Evaluate(m mail.Mail) bool {
 		input = m.Subject
 	case targetBody:
 		input = m.Body
+	case targetSender:
+		input = m.Sender
 	default:
 		// Unknown target; treat as non-match
 		return false

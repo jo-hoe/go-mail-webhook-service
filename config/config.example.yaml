@@ -6,7 +6,7 @@
 # - The top-level structure is a YAML list of config objects.
 # - Each config entry runs independently with its own selectors and callback.
 # - Time values must be valid Go duration strings, e.g. "24s", "1m", "2h45m".
-# - Supported selector types: "subjectRegex", "bodyRegex", "attachmentNameRegex"
+# - Supported selector types: "subjectRegex", "bodyRegex", "attachmentNameRegex", "senderRegex"
 # - Supported callback field types: "jsonValue", "headerValue", "queryParamValue", "formValue"
 # - Supported HTTP methods: GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS, TRACE
 #
@@ -38,6 +38,13 @@
     - name: "Amount"
       type: "bodyRegex"
       pattern: "Total: \\$([0-9]+\\.[0-9]{2})"
+      captureGroup: 1
+      scope: false
+
+    # Extract sender email address domain (e.g., captures "example.com" from "user@example.com")
+    - name: "SenderDomain"
+      type: "senderRegex"
+      pattern: "@([^@]+)$"
       captureGroup: 1
       scope: false
 
@@ -73,6 +80,11 @@
       - type: "queryParamValue"
         name: "fileNum"
         value: "${FileNum}"
+
+      # Include sender domain in JSON body
+      - type: "jsonValue"
+        name: "senderDomain"
+        value: "${SenderDomain}"
 
       # Form field example (sent as application/x-www-form-urlencoded)
       - type: "formValue"

@@ -20,6 +20,7 @@ type Attachment struct {
 
 type Mail struct {
 	Id          string
+	Sender      string
 	Subject     string
 	Body        string
 	Attachments []Attachment
