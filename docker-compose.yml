@@ -3,4 +3,5 @@ services:
     build: .
     image: go-mail-webhook-service
     volumes:
-      - "./dev/config/:/go/config" # Place your runtime app config at ./config/config.yaml; see dev/config.example.yaml for an example
+      - "./dev/:/go/config" # Place your runtime app config at ./config/config.yaml; see dev/config.example.yaml for an example
+      - "./dev/:/secrets/mail:ro" # Mount sample Gmail credentials dir (client_secret.json, request.token) for local testing

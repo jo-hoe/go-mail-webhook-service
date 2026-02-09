@@ -1,70 +1,29 @@
-# Local dev overrides for Helm install in k3d
-# Build and push a local image, then:
-#   make start-k3d
-#
-# This file intentionally contains placeholders; update with real values/secrets for functional runs.
+# Runtime application config for go-mail-webhook-service
+# This file is mounted into the container at /go/config/config.yaml by docker-compose.
+# Replace placeholders with real values (Gmail credentials must be provided and mounted if you want real mail processing).
 
-image:
-  repository: registry.localhost:5000/go-mail-webhook-service
-  tag: latest
-  pullPolicy: IfNotPresent
+- mailClientConfig:
+    mail: "your-account@gmail.com"
+    # Inside the container, this directory must contain:
+    #   - client_secret.json
+    #   - request.token
+    # Adjust and mount it accordingly if you want to run end-to-end.
+    credentialsPath: "/secrets/mail"
 
-job:
-  enabled: false
-  backoffLimit: 0
-  ttlSecondsAfterFinished: 3600
-  restartPolicy: Never
+  # Minimal selector: match any subject to keep the config valid
+  mailSelectors:
+    - name: "Any"
+      type: "subjectRegex"
+      pattern: ".*"
+      captureGroup: 0
+      scope: true
 
-cronjob:
-  enabled: false
-  schedule: "*/5 * * * *"
-  concurrencyPolicy: Forbid
-  successfulJobsHistoryLimit: 1
-  failedJobsHistoryLimit: 1
-  suspend: false
-
-# Example environment variables if needed
-env: []
-# - name: HTTP_PROXY
-#   value: http://proxy:8080
-
-# The app reads config from /go/config/config.yaml inside the container.
-# Provide at least one config object to do a meaningful run.
-# Commented example below; replace with actual Gmail credentials mount and selectors.
-configs: []
-# Example:
-# configs:
-#   - mailClientConfig:
-#       mail: "your-account@gmail.com"
-#       # Ensure the credentials secret is mounted into the Pod accordingly
-#       credentialsPath: "/secrets/mail"
-#     mailSelectors:
-#       - name: "OrderId"
-#         type: "subjectRegex"
-#         pattern: "Order ([0-9]+) confirmed"
-#         captureGroup: 1
-#         scope: true
-#       - name: "Amount"
-#         type: "bodyRegex"
-#         pattern: "Total: \\$([0-9]+\\.[0-9]{2})"
-#         captureGroup: 1
-#         scope: false
-#     callback:
-#       url: "https://example.net/webhook"
-#       method: "POST"
-#       timeout: "24s"
-#       retries: 0
-#       headers:
-#         - key: "Content-Type"
-#           value: "application/json"
-#         - key: "X-Order-Id"
-#           value: "${OrderId}"
-#       # Forward attachments as multipart/form-data file parts (set enabled: true)
-#       attachments:
-#         enabled: false
-#         fieldPrefix: "attachment"
-#         maxSize: 0                     # 0 means no per-attachment size limit
-#       body: |
-#         {
-#           "amount": "${Amount}"
-#         }
+  callback:
+    url: "https://example.com/webhook"
+    method: "GET"
+    timeout: "24s"
+    retries: 0
+    headers: []
+    queryParams: []
+    form: []
+    body: ""
