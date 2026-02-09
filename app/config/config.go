@@ -42,8 +42,14 @@ func validateCallbackFields(fields []CallbackField) error {
 			if !nameRegex.MatchString(f.Name) {
 				return fmt.Errorf("callback.fields[%s] invalid header name: must match ^[0-9A-Za-z-]+$", f.Name)
 			}
+		case "formValue":
+			// treat like jsonValue regarding name rules
+			nameRegex := regexp.MustCompile("^[0-9A-Za-z]+$")
+			if !nameRegex.MatchString(f.Name) {
+				return fmt.Errorf("callback.fields[%s] invalid name for type %s: must match ^[0-9A-Za-z]+$", f.Name, f.Type)
+			}
 		default:
-			return fmt.Errorf("callback.fields[%s] invalid type: %s (supported: jsonValue, headerValue, queryParamValue)", f.Name, f.Type)
+			return fmt.Errorf("callback.fields[%s] invalid type: %s (supported: jsonValue, headerValue, queryParamValue, formValue)", f.Name, f.Type)
 		}
 		// f.Value can be any string; placeholders are validated at runtime
 	}
@@ -144,9 +150,9 @@ func validateMailSelectorConfig(sel *MailSelectorConfig) error {
 		return fmt.Errorf("mailSelectors.name must match ^[0-9A-Za-z]+$: '%s'", sel.Name)
 	}
 
-	// type: only "subjectRegex" or "bodyRegex" supported currently
-	if sel.Type != "subjectRegex" && sel.Type != "bodyRegex" {
-		return fmt.Errorf("mailSelectors.type not supported: '%s' (supported: 'subjectRegex','bodyRegex')", sel.Type)
+	// type: support "subjectRegex", "bodyRegex", and "attachmentNameRegex"
+	if sel.Type != "subjectRegex" && sel.Type != "bodyRegex" && sel.Type != "attachmentNameRegex" {
+		return fmt.Errorf("mailSelectors.type not supported: '%s' (supported: 'subjectRegex','bodyRegex','attachmentNameRegex')", sel.Type)
 	}
 
 	// pattern must compile

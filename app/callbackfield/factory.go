@@ -27,6 +27,11 @@ func NewFieldPrototypes(cfgs []config.CallbackField) ([]FieldPrototype, error) {
 				name:  c.Name,
 				value: c.Value,
 			})
+		case "formValue":
+			prototypes = append(prototypes, &FormValueFieldPrototype{
+				name:  c.Name,
+				value: c.Value,
+			})
 		default:
 			return nil, fmt.Errorf("unsupported callback field type '%s' for field '%s'", c.Type, c.Name)
 		}

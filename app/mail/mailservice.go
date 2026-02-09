@@ -13,10 +13,16 @@ type MailClientService interface {
 	MarkMailAsRead(context context.Context, mail Mail) error
 }
 
+type Attachment struct {
+	Name    string
+	Content []byte
+}
+
 type Mail struct {
-	Id      string
-	Subject string
-	Body    string
+	Id          string
+	Subject     string
+	Body        string
+	Attachments []Attachment
 }
 
 func NewMailClientService(mailClientConfig *config.MailClientConfig) (MailClientService, error) {

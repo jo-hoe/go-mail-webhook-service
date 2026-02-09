@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"mime/multipart"
 	"github.com/jo-hoe/go-mail-webhook-service/app/callbackfield"
 	"sync"
 	"time"
@@ -181,6 +182,10 @@ func constructRequest(m mail.Mail, config *config.Config, allProtos []selector.S
 	if err != nil {
 		return nil, err
 	}
+	// Ensure header map exists before setting any headers
+	if request.Header == nil {
+		request.Header = make(http.Header)
+	}
 
 	// Apply query parameters
 	q := request.URL.Query()
@@ -196,6 +201,31 @@ func constructRequest(m mail.Mail, config *config.Config, allProtos []selector.S
 		request.Header.Set(name, value)
 	}
 
+	// If form fields exist, build multipart/form-data body
+	if len(parts.Form) > 0 {
+		var body bytes.Buffer
+		w := multipart.NewWriter(&body)
+		for name, values := range parts.Form {
+			for _, v := range values {
+				_ = w.WriteField(name, v)
+			}
+		}
+		// Also include JSON fields as simple form fields if any
+		for name, value := range parts.JSON {
+			_ = w.WriteField(name, value)
+		}
+		if err := w.Close(); err != nil {
+			return nil, err
+		}
+		request.Body = ioNopCloser(bytes.NewReader(body.Bytes()))
+		request.ContentLength = int64(body.Len())
+		// Set Content-Type with boundary if not already provided
+		if request.Header.Get("Content-Type") == "" {
+			request.Header.Set("Content-Type", w.FormDataContentType())
+		}
+		return request, nil
+	}
+
 	// Attach JSON body if any jsonValue fields were provided
 	if len(parts.JSON) > 0 {
 		bodyBytes, mErr := json.Marshal(parts.JSON)
@@ -204,6 +234,10 @@ func constructRequest(m mail.Mail, config *config.Config, allProtos []selector.S
 		}
 		request.Body = ioNopCloser(bytes.NewReader(bodyBytes))
 		request.ContentLength = int64(len(bodyBytes))
+		// Ensure Content-Type is set for JSON body if not provided by fields
+		if request.Header.Get("Content-Type") == "" {
+			request.Header.Set("Content-Type", "application/json")
+		}
 	}
 
 	return request, nil

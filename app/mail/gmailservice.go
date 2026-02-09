@@ -61,11 +61,13 @@ func (service *GmailService) GetAllUnreadMail(context context.Context) ([]Mail, 
 
 		subject := extractSubject(fullMessage.Payload.Headers)
 		body := extractPlainTextBody(fullMessage.Payload.Parts)
+		attachments := extractAttachments(gmailService, user, message.Id, fullMessage.Payload.Parts)
 
 		result = append(result, Mail{
-			Id:      message.Id,
-			Subject: subject,
-			Body:    body,
+			Id:          message.Id,
+			Subject:     subject,
+			Body:        body,
+			Attachments: attachments,
 		})
 	}
 
@@ -117,6 +119,39 @@ func extractPlainTextBody(parts []*gmail.MessagePart) string {
 		}
 	}
 	return ""
+}
+
+// extractAttachments walks the message parts to collect attachments (filename + raw bytes).
+func extractAttachments(svc *gmail.Service, user, msgID string, parts []*gmail.MessagePart) []Attachment {
+	var result []Attachment
+	for _, part := range parts {
+		// If this part has a filename, it's typically an attachment part
+		if part.Filename != "" && part.Body != nil && part.Body.AttachmentId != "" {
+			att, err := svc.Users.Messages.Attachments.Get(user, msgID, part.Body.AttachmentId).Do()
+			if err != nil {
+				log.Printf("Error retrieving attachment %s: %v", part.Filename, err)
+				continue
+			}
+			// Gmail returns URL-safe base64 for attachments
+			data, err := base64.URLEncoding.DecodeString(att.Data)
+			if err != nil {
+				log.Printf("Error decoding attachment %s: %v", part.Filename, err)
+				continue
+			}
+			result = append(result, Attachment{
+				Name:    part.Filename,
+				Content: data,
+			})
+		}
+		// Recurse into nested parts
+		if len(part.Parts) > 0 {
+			sub := extractAttachments(svc, user, msgID, part.Parts)
+			if len(sub) > 0 {
+				result = append(result, sub...)
+			}
+		}
+	}
+	return result
 }
 
 func (service *GmailService) getGmailService(context context.Context, scope ...string) (*gmail.Service, error) {
