@@ -42,46 +42,46 @@ Placeholders:
 Example:
 
 ```yaml
-- mailClientConfig:
-    mail: "example@gmail.com"
-    credentialsPath: "/secrets/mail"
+mailClientConfig:
+  mail: "example@gmail.com"
+  credentialsPath: "/secrets/mail"
 
-  mailSelectors:
-    - name: "OrderId"
-      type: "subjectRegex"
-      pattern: "Order ([0-9]+) confirmed"
-      captureGroup: 1
-      scope: true
-    - name: "Amount"
-      type: "bodyRegex"
-      pattern: "Total: \\$([0-9]+\\.[0-9]{2})"
-      captureGroup: 1
-      scope: false
+mailSelectors:
+  - name: "OrderId"
+    type: "subjectRegex"
+    pattern: "Order ([0-9]+) confirmed"
+    captureGroup: 1
+    scope: true
+  - name: "Amount"
+    type: "bodyRegex"
+    pattern: "Total: \\$([0-9]+\\.[0-9]{2})"
+    captureGroup: 1
+    scope: false
 
-  callback:
-    url: "https://example.com/callback"
-    method: "POST"
-    timeout: "24s"
-    retries: 0
+callback:
+  url: "https://example.com/callback"
+  method: "POST"
+  timeout: "24s"
+  retries: 0
 
-    headers:
-      - key: "X-Order-Id"
-        value: "${OrderId}"
-      - key: "Content-Type"
-        value: "application/json"
+  headers:
+    - key: "X-Order-Id"
+      value: "${OrderId}"
+    - key: "Content-Type"
+      value: "application/json"
 
-    queryParams:
-      - key: "campaign"
-        value: "winter"
+  queryParams:
+    - key: "campaign"
+      value: "winter"
 
-    form:
-      - key: "note"
-        value: "Processed order ${OrderId}"
+  form:
+    - key: "note"
+      value: "Processed order ${OrderId}"
 
-    body: |
-      {
-        "amount": "${Amount}"
-      }
+  body: |
+    {
+      "amount": "${Amount}"
+    }
 ```
 
 Notes:
@@ -127,7 +127,7 @@ in the working directory
 
 ## Kubernetes Helm Chart
 
-A Helm chart is provided under charts/go-mail-webhook-service. The application reads its configuration from /go/config/config.yaml inside the container, rendered from .Values.configs (array).
+A Helm chart is provided under charts/go-mail-webhook-service. The application reads its configuration from /go/config/config.yaml inside the container, rendered from .Values.config (single object).
 
 Basic install from local chart directory:
 - helm install go-mail-webhook-service ./charts/go-mail-webhook-service -f your-values.yaml
@@ -135,7 +135,7 @@ Basic install from local chart directory:
 Key values:
 - image.repository: container image repository (default ghcr.io/jo-hoe/go-mail-webhook-service)
 - image.tag: image tag (default latest)
-- configs: array of application config objects; this is rendered verbatim into the ConfigMap at /go/config/config.yaml
+- config: single object; this is rendered verbatim into the ConfigMap at /go/config/config.yaml
 - job.enabled: if true, runs a Helm hook Job once after install/upgrade
 - cronjob.enabled: if true, runs the app on a schedule
 
@@ -161,7 +161,7 @@ Flow:
 
 Dev overrides:
 
-- Edit dev/config.yaml to set image repository (registry.localhost:5000/go-mail-webhook-service) and supply your configs array.
+- Edit dev/config.yaml to set image repository (registry.localhost:5000/go-mail-webhook-service) and supply your config object.
 
 ## CI/CD
 

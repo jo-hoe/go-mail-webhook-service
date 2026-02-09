@@ -83,39 +83,27 @@ type Callback struct {
 	Attachments AttachmentsConfig `yaml:"attachments"`
 }
 
-func NewConfigsFromYaml(yamlBytes []byte) (*[]Config, error) {
-	var configs []Config
-	err := yaml.Unmarshal(yamlBytes, &configs)
+func NewConfigFromYaml(yamlBytes []byte) (*Config, error) {
+	var cfg Config
+	err := yaml.Unmarshal(yamlBytes, &cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	configs = *setDefaults(&configs)
-	if err := validateConfigs(&configs); err != nil {
+	setDefaults(&cfg)
+	if err := validateConfig(&cfg); err != nil {
 		return nil, err
 	}
-	return &configs, nil
+	return &cfg, nil
 }
 
-func setDefaults(input *[]Config) (output *[]Config) {
-	output = input
-	for i, config := range *output {
-		if config.Callback.Timeout == "" {
-			(*output)[i].Callback.Timeout = "24s"
-		}
-		// CaptureGroup and Scope default via zero-values; nothing to set here
+func setDefaults(config *Config) {
+	if config.Callback.Timeout == "" {
+		config.Callback.Timeout = "24s"
 	}
-	return output
+	// CaptureGroup and Scope default via zero-values; nothing to set here
 }
 
-func validateConfigs(configs *[]Config) error {
-	for _, config := range *configs {
-		if err := validateConfig(&config); err != nil {
-			return err
-		}
-	}
-	return nil
-}
 
 func validateConfig(config *Config) error {
 	// Validate selectors

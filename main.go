@@ -11,20 +11,20 @@ import (
 
 var configFileName = path.Join("config", "config.yaml")
 
-func getConfig() (*[]config.Config, error) {
+func getConfig() (*config.Config, error) {
 	yamlFile, err := os.ReadFile(configFileName)
 	if err != nil {
 		return nil, err
 	}
-	return config.NewConfigsFromYaml(yamlFile)
+	return config.NewConfigFromYaml(yamlFile)
 }
 
 func main() {
-	configs, err := getConfig()
+	cfg, err := getConfig()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// Process all configs once and exit (suitable for Kubernetes Job execution)
-	webhook.NewWebhookService(configs).Run()
+	// Process config once and exit (suitable for Kubernetes Job execution)
+	webhook.NewWebhookService(cfg).Run()
 }

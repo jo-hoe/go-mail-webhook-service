@@ -1,5 +1,5 @@
 # Default values for go-mail-webhook-service.
-# This chart models the application's config/config.yaml via .Values.configs (an array).
+# This chart models the application's config/config.yaml via .Values.config (a single object).
 # The resulting ConfigMap renders to /config/config.yaml inside the container.
 
 image:
@@ -82,39 +82,39 @@ mailClientCredentials:
   filename: "client_secret.json"
   mountPath: "/secrets/mail"
 
-# -- The core application configuration. This renders verbatim into config/config.yaml (array of objects).
+# -- The core application configuration. This renders verbatim into config/config.yaml (single object).
 # Adjust credentialsPath to match how you mount secrets into the Pod.
-configs: []
+config: {}
 # Example:
-# configs:
-#   - mailClientConfig:
-#       mail: "example@gmail.com"
-#       # Set credentialsPath to the directory where the Secret is mounted
-#       credentialsPath: "/secrets/mail"
-#     mailSelectors:
-#       - name: "OrderId"
-#         type: "subjectRegex"
-#         pattern: "Order ([0-9]+) confirmed"
-#         captureGroup: 1
-#         scope: true
-#       - name: "Amount"
-#         type: "bodyRegex"
-#         pattern: "Total: \\$([0-9]+\\.[0-9]{2})"
-#         captureGroup: 1
-#         scope: false
-#     callback:
-#       url: "https://example.net/webhook"
-#       method: "POST"
-#       timeout: "24s"
-#       retries: 0
-#       headers:
-#         - key: "Content-Type"
-#           value: "application/json"
-#       queryParams:
-#         - key: "source"
-#           value: "mail"
-#       body: |
-#         {
-#           "orderId": "${OrderId}",
-#           "amount": "${Amount}"
-#         }
+# config:
+#   mailClientConfig:
+#     mail: "example@gmail.com"
+#     # Set credentialsPath to the directory where the Secret is mounted
+#     credentialsPath: "/secrets/mail"
+#   mailSelectors:
+#     - name: "OrderId"
+#       type: "subjectRegex"
+#       pattern: "Order ([0-9]+) confirmed"
+#       captureGroup: 1
+#       scope: true
+#     - name: "Amount"
+#       type: "bodyRegex"
+#       pattern: "Total: \\$([0-9]+\\.[0-9]{2})"
+#       captureGroup: 1
+#       scope: false
+#   callback:
+#     url: "https://example.net/webhook"
+#     method: "POST"
+#     timeout: "24s"
+#     retries: 0
+#     headers:
+#       - key: "Content-Type"
+#         value: "application/json"
+#     queryParams:
+#       - key: "source"
+#         value: "mail"
+#     body: |
+#       {
+#         "orderId": "${OrderId}",
+#         "amount": "${Amount}"
+#       }

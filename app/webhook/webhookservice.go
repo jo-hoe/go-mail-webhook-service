@@ -19,19 +19,17 @@ import (
 )
 
 type WebhookService struct {
-	configs *[]config.Config
+	config *config.Config
 }
 
-func NewWebhookService(configs *[]config.Config) *WebhookService {
+func NewWebhookService(cfg *config.Config) *WebhookService {
 	return &WebhookService{
-		configs: configs,
+		config: cfg,
 	}
 }
 
 func (webhookService *WebhookService) Run() {
-	for i := range *webhookService.configs {
-		processWebhook(&(*webhookService.configs)[i])
-	}
+	processWebhook(webhookService.config)
 }
 
 

@@ -12,68 +12,66 @@ func TestNewConfig(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    *[]Config
+		want    *Config
 		wantErr bool
 	}{
 		{
 			name: "positive test",
 			args: args{
 				yamlBytes: []byte(`
-- mailClientConfig: 
-    mail: "example@gmail.com"
-    credentialsPath: "/path/to/client_secrets/file/"
-  mailSelectors:
-  - name: "subjectScope"
-    type: "subjectRegex"
-    pattern: ".*"
-    scope: true
-  - name: "test"
-    type: "bodyRegex"
-    pattern: "[a-z]{0,6}"
-  - name: "test2"
-    type: "bodyRegex"
-    pattern: ".*"
-  callback:
-    url: "https://example.com/callback"
-    method: "POST"
-    timeout: 8s
-    retries: 10`),
+mailClientConfig: 
+  mail: "example@gmail.com"
+  credentialsPath: "/path/to/client_secrets/file/"
+mailSelectors:
+- name: "subjectScope"
+  type: "subjectRegex"
+  pattern: ".*"
+  scope: true
+- name: "test"
+  type: "bodyRegex"
+  pattern: "[a-z]{0,6}"
+- name: "test2"
+  type: "bodyRegex"
+  pattern: ".*"
+callback:
+  url: "https://example.com/callback"
+  method: "POST"
+  timeout: 8s
+  retries: 10`),
 			},
-			want: &[]Config{
-				{
-					MailClientConfig: MailClientConfig{
-						Mail:            "example@gmail.com",
-						CredentialsPath: "/path/to/client_secrets/file/",
+			want: &Config{
+				MailClientConfig: MailClientConfig{
+					Mail:            "example@gmail.com",
+					CredentialsPath: "/path/to/client_secrets/file/",
+				},
+				MailSelectors: []MailSelectorConfig{
+					{
+						Name:         "subjectScope",
+						Type:         "subjectRegex",
+						Pattern:      ".*",
+						CaptureGroup: 0,
+						Scope:        true,
 					},
-					MailSelectors: []MailSelectorConfig{
-						{
-							Name:         "subjectScope",
-							Type:         "subjectRegex",
-							Pattern:      ".*",
-							CaptureGroup: 0,
-							Scope:        true,
-						},
-						{
-							Name:         "test",
-							Type:         "bodyRegex",
-							Pattern:      "[a-z]{0,6}",
-							CaptureGroup: 0,
-							Scope:        false,
-						},
-						{
-							Name:         "test2",
-							Type:         "bodyRegex",
-							Pattern:      ".*",
-							CaptureGroup: 0,
-							Scope:        false,
-						},
+					{
+						Name:         "test",
+						Type:         "bodyRegex",
+						Pattern:      "[a-z]{0,6}",
+						CaptureGroup: 0,
+						Scope:        false,
 					},
-					Callback: Callback{
-						Url:     "https://example.com/callback",
-						Method:  "POST",
-						Timeout: "8s",
-						Retries: 10,
+					{
+						Name:         "test2",
+						Type:         "bodyRegex",
+						Pattern:      ".*",
+						CaptureGroup: 0,
+						Scope:        false,
 					},
+				},
+				Callback: Callback{
+					Url:     "https://example.com/callback",
+					Method:  "POST",
+					Timeout: "8s",
+					Retries: 10,
 				},
 			},
 			wantErr: false,
@@ -88,39 +86,37 @@ func TestNewConfig(t *testing.T) {
 			name: "test defaults",
 			args: args{
 				yamlBytes: []byte(`
-- mailClientConfig: 
-    mail: "example@gmail.com"
-    credentialsPath: "/path/to/client_secrets/file/"
-  mailSelectors:
-  - name: "subjectScope"
-    type: "subjectRegex"
-    pattern: ".*"
-    scope: true
-  callback:
-    url: "https://example.com/callback"
-    method: "POST"`),
+mailClientConfig: 
+  mail: "example@gmail.com"
+  credentialsPath: "/path/to/client_secrets/file/"
+mailSelectors:
+- name: "subjectScope"
+  type: "subjectRegex"
+  pattern: ".*"
+  scope: true
+callback:
+  url: "https://example.com/callback"
+  method: "POST"`),
 			},
-			want: &[]Config{
-				{
-					MailClientConfig: MailClientConfig{
-						Mail:            "example@gmail.com",
-						CredentialsPath: "/path/to/client_secrets/file/",
+			want: &Config{
+				MailClientConfig: MailClientConfig{
+					Mail:            "example@gmail.com",
+					CredentialsPath: "/path/to/client_secrets/file/",
+				},
+				MailSelectors: []MailSelectorConfig{
+					{
+						Name:         "subjectScope",
+						Type:         "subjectRegex",
+						Pattern:      ".*",
+						CaptureGroup: 0,
+						Scope:        true,
 					},
-					MailSelectors: []MailSelectorConfig{
-						{
-							Name:         "subjectScope",
-							Type:         "subjectRegex",
-							Pattern:      ".*",
-							CaptureGroup: 0,
-							Scope:        true,
-						},
-					},
-					Callback: Callback{
-						Url:     "https://example.com/callback",
-						Method:  "POST",
-						Timeout: "24s",
-						Retries: 0,
-					},
+				},
+				Callback: Callback{
+					Url:     "https://example.com/callback",
+					Method:  "POST",
+					Timeout: "24s",
+					Retries: 0,
 				},
 			},
 			wantErr: false,
@@ -128,17 +124,17 @@ func TestNewConfig(t *testing.T) {
 			name: "test unsupported http method",
 			args: args{
 				yamlBytes: []byte(`
-- mailClientConfig: 
-    mail: "example@gmail.com"
-    credentialsPath: "/path/to/client_secrets/file/"
-  mailSelectors:
-  - name: "subjectScope"
-    type: "subjectRegex"
-    pattern: ".*"
-    scope: true
-  callback:
-    url: "https://example.com/callback"
-    method: "invalid"`),
+mailClientConfig: 
+  mail: "example@gmail.com"
+  credentialsPath: "/path/to/client_secrets/file/"
+mailSelectors:
+- name: "subjectScope"
+  type: "subjectRegex"
+  pattern: ".*"
+  scope: true
+callback:
+  url: "https://example.com/callback"
+  method: "invalid"`),
 			},
 			want:    nil,
 			wantErr: true,
@@ -146,13 +142,13 @@ func TestNewConfig(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewConfigsFromYaml(tt.args.yamlBytes)
+			got, err := NewConfigFromYaml(tt.args.yamlBytes)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("NewConfig() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("NewConfigFromYaml() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewConfig() = %v, want %v", got, tt.want)
+				t.Errorf("NewConfigFromYaml() = %v, want %v", got, tt.want)
 			}
 		})
 	}

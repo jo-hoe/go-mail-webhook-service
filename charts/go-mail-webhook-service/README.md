@@ -15,8 +15,8 @@ A Helm chart for deploying go-mail-webhook-service (polls mail and triggers webh
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` |  |
-| configs | list | `[]` | The core application configuration. This renders verbatim into config/config.yaml (array of objects). Adjust credentialsPath to match how you mount secrets into the Pod. |
-| cronjob | object | `{"annotations":{},"concurrencyPolicy":"Forbid","enabled":false,"failedJobsHistoryLimit":1,"labels":{},"schedule":"*/5 * * * *","startingDeadlineSeconds":null,"successfulJobsHistoryLimit":1,"suspend":false}` | Controls rendering of a Kubernetes CronJob that runs the app on a schedule (ensure RunOnce=true in configs) |
+| config | object | `{}` | The core application configuration. This renders verbatim into config/config.yaml (single object). Adjust credentialsPath to match how you mount secrets into the Pod. |
+| cronjob | object | `{"annotations":{},"concurrencyPolicy":"Forbid","enabled":false,"failedJobsHistoryLimit":1,"labels":{},"schedule":"*/5 * * * *","startingDeadlineSeconds":null,"successfulJobsHistoryLimit":1,"suspend":false}` | Controls rendering of a Kubernetes CronJob that runs the app on a schedule |
 | env | list | `[]` | Environment variables for the container |
 | extraVolumeMounts | list | `[]` |  |
 | extraVolumes | list | `[]` |  |
@@ -25,7 +25,7 @@ A Helm chart for deploying go-mail-webhook-service (polls mail and triggers webh
 | image.repository | string | `"ghcr.io/jo-hoe/go-mail-webhook-service"` |  |
 | image.tag | string | `"0.1.0"` |  |
 | imagePullSecrets | list | `[]` | Optional imagePullSecrets |
-| job | object | `{"annotations":{},"backoffLimit":0,"enabled":false,"labels":{},"restartPolicy":"Never","ttlSecondsAfterFinished":3600}` | Controls rendering of a Kubernetes Job that runs the app to completion (requires RunOnce=true in configs) |
+| job | object | `{"annotations":{},"backoffLimit":0,"enabled":false,"labels":{},"restartPolicy":"Never","ttlSecondsAfterFinished":3600}` | Controls rendering of a Kubernetes Job that runs the app to completion |
 | nameOverride | string | `""` |  |
 | nodeSelector | object | `{}` |  |
 | podAnnotations | object | `{}` |  |

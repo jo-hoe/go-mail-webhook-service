@@ -4,7 +4,7 @@
    The application reads its configuration from:
      /go/config/config.yaml
    This file is rendered from the chart values:
-     .Values.configs (array)
+     .Values.config (object)
    Edit your values and upgrade:
      helm upgrade {{ .Release.Name }} {{ .Chart.Name }} -f your-values.yaml
 
