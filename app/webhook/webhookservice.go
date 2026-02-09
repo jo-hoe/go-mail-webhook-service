@@ -88,21 +88,16 @@ func processMails(ctx context.Context, client *http.Client, config *config.Confi
 		return
 	}
 
-	scopeProtos, nonScopeProtos, err := buildSelectorPrototypes(config)
+	allProtos, err := buildSelectorPrototypes(config)
 	if err != nil {
 		log.Printf("could not build selector prototypes - error: %s", err)
 		return
 	}
 
-	filteredMails := filterMailsByScopeSelectors(allMails, scopeProtos)
+	filteredMails := filterMailsBySelectors(allMails, allProtos)
 	log.Printf("number of unread mails that are in scope is: %d\n", len(filteredMails))
 
 	var wg sync.WaitGroup
-	// build combined prototypes for placeholder evaluation (scope + non-scope)
-	allProtos := make([]selector.SelectorPrototype, 0, len(scopeProtos)+len(nonScopeProtos))
-	allProtos = append(allProtos, scopeProtos...)
-	allProtos = append(allProtos, nonScopeProtos...)
-
 	for _, m := range filteredMails {
 		wg.Add(1)
 		go processMail(ctx, client, mailService, m, config, allProtos, &wg)
@@ -163,8 +158,11 @@ func sendRequest(request *http.Request, client *http.Client) error {
 }
 
 func constructRequest(m mail.Mail, config *config.Config, allProtos []selector.SelectorPrototype) (request *http.Request, err error) {
-	// Evaluate all selectors to build placeholder map
-	selected := evaluateSelectors(m, allProtos)
+	// Evaluate all selectors to build placeholder map; require all to apply
+	selected, err := evaluateSelectorsStrict(m, allProtos)
+	if err != nil {
+		return nil, err
+	}
 
 	// Start with a base request without body; we'll attach body/headers/query per sections
 	request, err = http.NewRequest(config.Callback.Method, config.Callback.Url, nil)
@@ -246,12 +244,8 @@ func collectSelectorValues(m mail.Mail, nonScopeProtos []selector.SelectorProtot
 
 	for _, proto := range nonScopeProtos {
 		sel := proto.NewInstance()
-		// only non-scope selectors should be in this slice already, but keep check for safety
-		if sel.IsScope() {
-			continue
-		}
-		if sel.Evaluate(m) {
-			if v := sel.SelectedValue(); v != "" {
+		if v, err := sel.SelectValue(m); err == nil {
+			if v != "" {
 				result[sel.Name()] = v
 			}
 		}
@@ -260,23 +254,19 @@ func collectSelectorValues(m mail.Mail, nonScopeProtos []selector.SelectorProtot
 	return result
 }
 
-func filterMailsByScopeSelectors(mails []mail.Mail, scopeProtos []selector.SelectorPrototype) []mail.Mail {
+func filterMailsBySelectors(mails []mail.Mail, protos []selector.SelectorPrototype) []mail.Mail {
 	result := make([]mail.Mail, 0)
 
-	// If no scope selectors defined, process nothing by default
-	if len(scopeProtos) == 0 {
+	// If no selectors defined, process nothing by default
+	if len(protos) == 0 {
 		return result
 	}
 
 	for _, m := range mails {
 		inScope := true
-		for _, proto := range scopeProtos {
+		for _, proto := range protos {
 			sel := proto.NewInstance()
-			// ensure it's a scope selector
-			if !sel.IsScope() {
-				continue
-			}
-			if !sel.Evaluate(m) {
+			if _, err := sel.SelectValue(m); err != nil {
 				inScope = false
 				break
 			}
@@ -289,37 +279,36 @@ func filterMailsByScopeSelectors(mails []mail.Mail, scopeProtos []selector.Selec
 	return result
 }
 
-func buildSelectorPrototypes(config *config.Config) (scope []selector.SelectorPrototype, nonScope []selector.SelectorPrototype, err error) {
-	all, err := selector.NewSelectorPrototypes(config.MailSelectors)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	scope = make([]selector.SelectorPrototype, 0)
-	nonScope = make([]selector.SelectorPrototype, 0)
-	for _, p := range all {
-		inst := p.NewInstance()
-		if inst.IsScope() {
-			scope = append(scope, p)
-		} else {
-			nonScope = append(nonScope, p)
-		}
-	}
-	return scope, nonScope, nil
+func buildSelectorPrototypes(config *config.Config) ([]selector.SelectorPrototype, error) {
+	return selector.NewSelectorPrototypes(config.MailSelectors)
 }
 
-// evaluateSelectors runs all selector prototypes against a mail and returns matched values by selector name.
+ // evaluateSelectors runs all selector prototypes against a mail and returns matched values by selector name.
 func evaluateSelectors(m mail.Mail, allProtos []selector.SelectorPrototype) map[string]string {
 	result := map[string]string{}
 	for _, proto := range allProtos {
 		sel := proto.NewInstance()
-		if sel.Evaluate(m) {
-			if v := sel.SelectedValue(); v != "" {
+		if v, err := sel.SelectValue(m); err == nil {
+			if v != "" {
 				result[sel.Name()] = v
 			}
 		}
 	}
 	return result
+}
+
+// evaluateSelectorsStrict ensures every selector applies; returns error if any selector doesn't match.
+func evaluateSelectorsStrict(m mail.Mail, allProtos []selector.SelectorPrototype) (map[string]string, error) {
+	result := map[string]string{}
+	for _, proto := range allProtos {
+		sel := proto.NewInstance()
+		v, err := sel.SelectValue(m)
+		if err != nil {
+			return nil, fmt.Errorf("selector '%s' did not apply: %w", sel.Name(), err)
+		}
+		result[sel.Name()] = v
+	}
+	return result, nil
 }
 
 // ioNopCloser wraps a Reader to satisfy io.ReadCloser without allocating a full NopCloser dependency.

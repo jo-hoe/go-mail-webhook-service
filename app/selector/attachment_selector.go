@@ -15,14 +15,12 @@ type AttachmentNameRegexSelectorPrototype struct {
 }
 
 type AttachmentNameRegexSelector struct {
-	proto         *AttachmentNameRegexSelectorPrototype
-	selectedValue string
+	proto *AttachmentNameRegexSelectorPrototype
 }
 
 func (p *AttachmentNameRegexSelectorPrototype) NewInstance() Selector {
 	return &AttachmentNameRegexSelector{
-		proto:         p,
-		selectedValue: "",
+		proto: p,
 	}
 }
 
@@ -38,17 +36,13 @@ func (s *AttachmentNameRegexSelector) IsScope() bool {
 	return s.proto.scope
 }
 
-// Evaluate scans attachments by filename; on first match sets selectedValue to base64 of content.
-func (s *AttachmentNameRegexSelector) Evaluate(m mail.Mail) bool {
+// SelectValue scans attachments by filename; on first match returns base64 of content.
+func (s *AttachmentNameRegexSelector) SelectValue(m mail.Mail) (string, error) {
 	for _, att := range m.Attachments {
 		if s.proto.re.MatchString(att.Name) {
-			s.selectedValue = base64.StdEncoding.EncodeToString(att.Content)
-			return true
+			return base64.StdEncoding.EncodeToString(att.Content), nil
 		}
 	}
-	return false
+	return "", ErrNotMatched
 }
 
-func (s *AttachmentNameRegexSelector) SelectedValue() string {
-	return s.selectedValue
-}

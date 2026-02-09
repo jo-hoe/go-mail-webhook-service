@@ -26,17 +26,15 @@ type RegexSelectorPrototype struct {
 	re           *regexp.Regexp
 }
 
-// RegexSelector is a stateful instance created from a RegexSelectorPrototype.
-// It evaluates a single mail and stores the selectedValue if it matches.
+// RegexSelector is a stateless instance created from a RegexSelectorPrototype.
+// It evaluates a mail and returns the selected value if it matches.
 type RegexSelector struct {
-	proto         *RegexSelectorPrototype
-	selectedValue string
+	proto *RegexSelectorPrototype
 }
 
 func (p *RegexSelectorPrototype) NewInstance() Selector {
 	return &RegexSelector{
-		proto:         p,
-		selectedValue: "",
+		proto: p,
 	}
 }
 
@@ -52,10 +50,10 @@ func (s *RegexSelector) IsScope() bool {
 	return s.proto.scope
 }
 
-// Evaluate applies the regex against the configured target of the mail.
-// If it matches, it stores either the full match (captureGroup == 0)
-// or the specified capture group (>0) as selectedValue.
-func (s *RegexSelector) Evaluate(m mail.Mail) bool {
+// SelectValue applies the regex against the configured target of the mail.
+// If it matches, it returns either the full match (captureGroup == 0)
+// or the specified capture group (>0). Otherwise returns ErrNotMatched.
+func (s *RegexSelector) SelectValue(m mail.Mail) (string, error) {
 	var input string
 	switch s.proto.target {
 	case targetSubject:
@@ -66,31 +64,25 @@ func (s *RegexSelector) Evaluate(m mail.Mail) bool {
 		input = m.Sender
 	default:
 		// Unknown target; treat as non-match
-		return false
+		return "", ErrNotMatched
 	}
 
 	// Using FindStringSubmatch to have access to capture groups
 	submatches := s.proto.re.FindStringSubmatch(input)
 	if len(submatches) == 0 {
-		return false
+		return "", ErrNotMatched
 	}
 
 	// captureGroup 0 means full match
 	if s.proto.captureGroup == 0 {
-		s.selectedValue = submatches[0]
-		return true
+		return submatches[0], nil
 	}
 
 	// captureGroup > 0 must be within bounds
 	if s.proto.captureGroup > 0 && s.proto.captureGroup < len(submatches) {
-		s.selectedValue = submatches[s.proto.captureGroup]
-		return true
+		return submatches[s.proto.captureGroup], nil
 	}
 
 	// group requested but not available -> no match
-	return false
-}
-
-func (s *RegexSelector) SelectedValue() string {
-	return s.selectedValue
+	return "", ErrNotMatched
 }
