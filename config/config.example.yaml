@@ -1,0 +1,113 @@
+# config/config.example.yaml
+# Template for go-mail-webhook-service application configuration.
+# Copy this file to config/config.yaml and replace placeholder values with real ones.
+#
+# Notes:
+# - The top-level structure is a YAML list of config objects.
+# - Each config entry runs independently with its own selectors and callback.
+# - Time values must be valid Go duration strings, e.g. "24s", "1m", "2h45m".
+# - Supported selector types: "subjectRegex", "bodyRegex", "attachmentNameRegex"
+# - Supported callback field types: "jsonValue", "headerValue", "queryParamValue", "formValue"
+# - Supported HTTP methods: GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS, TRACE
+#
+# Placeholders:
+# - Use ${SelectorName} in callback.fields.value to reference a selector's extracted value.
+# - Selector names must be alphanumeric only (^[0-9A-Za-z]+$).
+#
+# Name rules for fields:
+# - jsonValue/queryParamValue/formValue field names: alphanumeric only (^[0-9A-Za-z]+$)
+# - headerValue field names: alphanumeric and hyphens allowed (^[0-9A-Za-z-]+$)
+
+# Example 1: Comprehensive configuration demonstrating all selector and field types
+- mailClientConfig:
+    # Gmail address used by the mail client
+    mail: "your-account@gmail.com"
+    # Path to OAuth2 credentials JSON inside the running environment/container
+    # Ensure this file is mounted or available before running the service
+    credentialsPath: "/secrets/gmail/credentials.json"
+
+  mailSelectors:
+    # Extract numeric Order ID from the email subject
+    - name: "OrderId"
+      type: "subjectRegex"
+      pattern: "Order ([0-9]+) confirmed"
+      captureGroup: 1
+      scope: true   # true may select all matching mails globally; false limits scope
+
+    # Extract amount value from the email body
+    - name: "Amount"
+      type: "bodyRegex"
+      pattern: "Total: \\$([0-9]+\\.[0-9]{2})"
+      captureGroup: 1
+      scope: false
+
+    # Extract a number from an attachment file name like 'invoice-12345.pdf'
+    - name: "FileNum"
+      type: "attachmentNameRegex"
+      pattern: "invoice-([0-9]+)\\.pdf"
+      captureGroup: 1
+      scope: false
+
+  callback:
+    # The webhook endpoint to call with extracted values
+    url: "https://example.net/webhook"
+    # HTTP method must be one of: GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS, TRACE
+    method: "POST"
+    # Request timeout (Go duration format). Default is "24s" if omitted.
+    timeout: "24s"
+    # Number of retry attempts for the callback. Must be >= 0. Default is 0.
+    retries: 0
+    # Fields to include in the outgoing request, supporting placeholders like ${OrderId}
+    fields:
+      # Header example: hyphens allowed in header names
+      - type: "headerValue"
+        name: "X-Order-Id"
+        value: "${OrderId}"
+
+      # JSON body example: name must be alphanumeric
+      - type: "jsonValue"
+        name: "amount"
+        value: "${Amount}"
+
+      # Query parameter example
+      - type: "queryParamValue"
+        name: "fileNum"
+        value: "${FileNum}"
+
+      # Form field example (sent as application/x-www-form-urlencoded)
+      - type: "formValue"
+        name: "note"
+        value: "Processed order ${OrderId}"
+
+  # Interval between repeated executions for this config.
+  # Default is "0s" (run continuously); increase for polling behavior.
+  intervalBetweenExecutions: "0s"
+
+  # If true, process once and exit logic for this config. If false, continue looping.
+  runOnce: true
+
+# Example 2: Minimal configuration
+- mailClientConfig:
+    mail: "your-account@gmail.com"
+    credentialsPath: "/secrets/gmail/credentials.json"
+
+  mailSelectors:
+    # Capture a URL from the email body (full match)
+    - name: "Link"
+      type: "bodyRegex"
+      pattern: "https?://(www\\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}([-a-zA-Z0-9()@:%_+.~#?&/=]*)"
+      captureGroup: 0   # 0 means use the entire match
+      scope: false
+
+  callback:
+    url: "https://api.example.com/collect"
+    method: "GET"
+    timeout: "10s"
+    retries: 1
+    fields:
+      - type: "queryParamValue"
+        name: "url"
+        value: "${Link}"
+
+  intervalBetweenExecutions: "60s"
+  runOnce: false
