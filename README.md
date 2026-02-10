@@ -125,58 +125,7 @@ golangci-lint run ./...
 
 in the working directory
 
-## Kubernetes Helm Chart
-
-A Helm chart is provided under charts/go-mail-webhook-service. The application reads its configuration from /go/config/config.yaml inside the container, rendered from .Values.config (single object).
-
-Basic install from local chart directory:
-- helm install go-mail-webhook-service ./charts/go-mail-webhook-service -f your-values.yaml
-
-Key values:
-- image.repository: container image repository (default ghcr.io/jo-hoe/go-mail-webhook-service)
-- image.tag: image tag (default latest)
-- config: single object; this is rendered verbatim into the ConfigMap at /go/config/config.yaml
-- job.enabled: if true, runs a Helm hook Job once after install/upgrade
-- cronjob.enabled: if true, runs the app on a schedule
-
-See charts/go-mail-webhook-service/values.yaml for full options and an example.
-
 ## Local development with k3d
 
 A k3d cluster config is provided (dev/clusterconfig.yaml) and Makefile targets mirror the reference repo.
-
-Flow:
-- make start-k3d
-  - Creates a k3d cluster with a local registry
-  - Builds the image locally and pushes to localhost:5000
-  - Installs the Helm chart with dev/config.yaml overrides
-- make upgrade-k3d
-  - Rebuilds/pushes the image and upgrades the Helm release using dev/config.yaml
-- make uninstall-k3d
-  - Uninstalls the Helm release
-- make stop-k3d
-  - Deletes the k3d cluster and local registry
-- make restart-k3d
-  - Stops and recreates the cluster and re-installs the chart
-
-Dev overrides:
-
-- Edit dev/config.yaml to set image repository (registry.localhost:5000/go-mail-webhook-service) and supply your config object.
-
-## CI/CD
-
-Two GitHub Actions workflows are included:
-
-- .github/workflows/image-release.yml
-  - Builds and publishes the Docker image to GHCR when a tag matching v[0-9]+.[0-9]+.[0-9]+ is pushed
-  - Tags include full semver and major.minor, plus sha for non-tag builds
-
-- .github/workflows/chart-release.yml
-  - Publishes Helm charts using helm/chart-releaser when changes are pushed to the charts/ folder on main
-  - Ensure GitHub Pages is enabled for the gh-pages branch if you want to serve an index.yaml as a Helm repo
-
-Tagging a new release:
-
-- Bump versions as needed (appVersion in Chart.yaml for image tag reference, version for chart)
-- Push a git tag like v1.2.3 to trigger image publishing
-- Merge changes to charts/ on main to trigger chart release
+Use `make help` for details.

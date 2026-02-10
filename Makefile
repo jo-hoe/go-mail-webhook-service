@@ -25,7 +25,7 @@ lint: ## run linters
 
 .PHONY: test
 test: ## run go tests with coverage
-	go test ./...
+	go test ./... -covermode=count
 
 .PHONY: start
 start: ## start via docker-compose

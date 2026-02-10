@@ -1,6 +1,6 @@
 # go-mail-webhook-service
 
-![Version: 0.0.1](https://img.shields.io/badge/Version-0.0.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.0.1](https://img.shields.io/badge/AppVersion-0.0.1-informational?style=flat-square)
+![Version: 2.0.0](https://img.shields.io/badge/Version-2.0.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 2.0.0](https://img.shields.io/badge/AppVersion-2.0.0-informational?style=flat-square)
 
 A Helm chart for deploying go-mail-webhook-service (polls mail and triggers webhooks)
 
@@ -15,7 +15,7 @@ A Helm chart for deploying go-mail-webhook-service (polls mail and triggers webh
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` |  |
-| config | object | `{}` | The core application configuration. This renders verbatim into config/config.yaml (single object). Adjust credentialsPath to match how you mount secrets into the Pod. |
+| config | object | `{"logLevel":"info"}` | The core application configuration. This renders verbatim into config/config.yaml (single object). Adjust credentialsPath to match how you mount secrets into the Pod. |
 | cronjob | object | `{"annotations":{},"concurrencyPolicy":"Forbid","enabled":false,"failedJobsHistoryLimit":1,"labels":{},"schedule":"*/5 * * * *","startingDeadlineSeconds":null,"successfulJobsHistoryLimit":1,"suspend":false}` | Controls rendering of a Kubernetes CronJob that runs the app on a schedule |
 | env | list | `[]` | Environment variables for the container |
 | extraVolumeMounts | list | `[]` |  |
@@ -31,6 +31,8 @@ A Helm chart for deploying go-mail-webhook-service (polls mail and triggers webh
 | mailClientCredentials.filename | string | `"client_secret.json"` |  |
 | mailClientCredentials.mountPath | string | `"/secrets/mail"` |  |
 | mailClientCredentials.name | string | `""` |  |
+| mailClientCredentials.tokenBase64 | string | `""` |  |
+| mailClientCredentials.tokenFilename | string | `"request.token"` |  |
 | nameOverride | string | `""` |  |
 | nodeSelector | object | `{}` |  |
 | podAnnotations | object | `{}` |  |
