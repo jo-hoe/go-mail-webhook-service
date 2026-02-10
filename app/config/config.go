@@ -32,7 +32,6 @@ type AttachmentsConfig struct {
 	Enabled       bool   `yaml:"enabled"`
 	FieldPrefix   string `yaml:"fieldPrefix"` // prefix for multipart field names
 	MaxSize       string `yaml:"maxSize"`     // size string (e.g., "200Mi", "1MiB", "500MB"); empty or "0" means no limit
-	IncludeInline bool   `yaml:"includeInline"`
 	MaxSizeBytes  int64  `yaml:"-"`           // parsed bytes from MaxSize; 0 means no limit
 }
 
