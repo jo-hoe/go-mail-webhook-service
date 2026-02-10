@@ -26,6 +26,11 @@ A Helm chart for deploying go-mail-webhook-service (polls mail and triggers webh
 | image.tag | string | `"0.1.0"` |  |
 | imagePullSecrets | list | `[]` | Optional imagePullSecrets |
 | job | object | `{"annotations":{},"backoffLimit":0,"enabled":false,"labels":{},"restartPolicy":"Never","ttlSecondsAfterFinished":3600}` | Controls rendering of a Kubernetes Job that runs the app to completion |
+| mailClientCredentials.create | bool | `false` |  |
+| mailClientCredentials.credentialsBase64 | string | `""` |  |
+| mailClientCredentials.filename | string | `"client_secret.json"` |  |
+| mailClientCredentials.mountPath | string | `"/secrets/mail"` |  |
+| mailClientCredentials.name | string | `""` |  |
 | nameOverride | string | `""` |  |
 | nodeSelector | object | `{}` |  |
 | podAnnotations | object | `{}` |  |
