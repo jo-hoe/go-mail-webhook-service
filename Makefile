@@ -23,6 +23,10 @@ update: ## update dependencies
 lint: ## run linters
 	golangci-lint run
 
+.PHONY: test
+test: ## run go tests with coverage
+	go test ./...
+
 .PHONY: start
 start: ## start via docker-compose
 	@${DOCKER_COMPOSE_CMD}
