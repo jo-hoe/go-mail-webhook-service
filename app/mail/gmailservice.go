@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/gmail/v1"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/option"
 )
 
@@ -51,7 +53,11 @@ func (service *GmailService) GetAllUnreadMail(context context.Context) ([]Mail, 
 	listCall := gmailService.Users.Messages.List(user).Q("is:unread")
 	resp, err := listCall.Do()
 	if err != nil {
-		return result, fmt.Errorf("unable to retrieve messages: %v", err)
+		var gErr *googleapi.Error
+		if errors.As(err, &gErr) && (gErr.Code == 401 || gErr.Code == 403) {
+			return result, fmt.Errorf("Gmail API returned %d unauthorized/forbidden. The OAuth token at %s may be invalid, expired, or revoked. Re-generate the token using the CLI (cli/gmail) and ensure it is mounted at the configured credentialsPath. Original error: %v", gErr.Code, path.Join(service.credentialsPath, TokenFileName), err)
+		}
+		return result, fmt.Errorf("unable to retrieve messages from Gmail: %v", err)
 	}
 
 	for _, message := range resp.Messages {
@@ -88,7 +94,11 @@ func (service *GmailService) MarkMailAsRead(context context.Context, mail Mail) 
 	}
 	_, err = gmailService.Users.Messages.Modify("me", mail.Id, req).Do()
 	if err != nil {
-		return err
+		var gErr *googleapi.Error
+		if errors.As(err, &gErr) && (gErr.Code == 401 || gErr.Code == 403) {
+			return fmt.Errorf("Gmail API returned %d unauthorized/forbidden while marking message %s as read. The OAuth token at %s may be invalid, expired, or revoked. Re-generate the token using the CLI (cli/gmail) and ensure it is mounted at the configured credentialsPath. Original error: %v", gErr.Code, mail.Id, path.Join(service.credentialsPath, TokenFileName), err)
+		}
+		return fmt.Errorf("unable to mark message %s as read: %v", mail.Id, err)
 	}
 
 	return nil
@@ -175,52 +185,43 @@ func (service *GmailService) getGmailService(context context.Context, scope ...s
 		return nil, err
 	}
 
-	client, err := service.getClient(context, config)
+	ts, err := service.getTokenSource(context, config)
 	if err != nil {
 		return nil, err
 	}
 
-	return gmail.NewService(context, option.WithHTTPClient(client))
+	return gmail.NewService(context, option.WithTokenSource(ts))
 }
 
 func GetGmailConfig(credentialsPath string, scope ...string) (*oauth2.Config, error) {
 	b, err := os.ReadFile(path.Join(credentialsPath, CredentialsFileName))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read Gmail client credentials at %s: %w", path.Join(credentialsPath, CredentialsFileName), err)
 	}
 
 	// If modifying these scopes, delete your previously saved token.json.
 	return google.ConfigFromJSON(b, scope...)
 }
 
-// Retrieve a token, saves the token, then returns the generated client.
+ // Retrieve a token, then returns an HTTP client that auto-refreshes and persists the token.
 func (service *GmailService) getClient(context context.Context, config *oauth2.Config) (*http.Client, error) {
-	// The file token.json stores the user's access and refresh tokens, and is
-	// created automatically when the authorization flow completes for the first
-	// time.
 	tokenFilePath := path.Join(service.credentialsPath, TokenFileName)
 	token, err := tokenFromFile(tokenFilePath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read OAuth token from %s: %w. If the file is missing or corrupted, re-generate it using the CLI tool (cli/gmail)", tokenFilePath, err)
 	}
 
-	// check if token is already expired or about to expire (within minutes)
-	if token.Expiry.Before(time.Now().Add(4 * time.Minute)) {
-		// refresh token
-		token, err = config.TokenSource(context, token).Token()
-		if err != nil {
-			return nil, err
-		}
-		err = os.WriteFile(tokenFilePath, []byte(token.AccessToken), 0600)
-		if err != nil {
-			return nil, err
-		}
+	// If the token is already expired and there's no refresh token, bail out early with a helpful message.
+	if token.Expiry.Before(time.Now().Add(-1*time.Minute)) && token.RefreshToken == "" {
+		return nil, fmt.Errorf("stored OAuth token in %s is expired and has no refresh_token to refresh it. Please re-authorize to generate a new token using the CLI tool (cli/gmail)", tokenFilePath)
 	}
 
-	return config.Client(context, token), nil
+	ts := config.TokenSource(context, token)
+	client := oauth2.NewClient(context, &tokenSavingSource{TokenSource: ts, path: tokenFilePath})
+	return client, nil
 }
 
-// Retrieves a token from a local file.
+ // Retrieves a token from a local file.
 func tokenFromFile(filePath string) (*oauth2.Token, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -234,4 +235,49 @@ func tokenFromFile(filePath string) (*oauth2.Token, error) {
 	token := &oauth2.Token{}
 	err = json.NewDecoder(file).Decode(token)
 	return token, err
+}
+
+// tokenSavingSource persists any refreshed token to disk to keep the on-disk cache in sync.
+type tokenSavingSource struct {
+	oauth2.TokenSource
+	path string
+}
+
+func (s *tokenSavingSource) Token() (*oauth2.Token, error) {
+	t, err := s.TokenSource.Token()
+	if err != nil {
+		return nil, err
+	}
+	// Persist the full token JSON (including refresh_token) to file
+	file, err := os.OpenFile(s.path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		slog.Error("failed to open token file for writing", "path", s.path, "error", err)
+		return t, nil // return token even if persisting failed
+	}
+	defer func() {
+		if cerr := file.Close(); cerr != nil {
+			slog.Error("Error closing token file", "error", cerr)
+		}
+	}()
+	if err := json.NewEncoder(file).Encode(t); err != nil {
+		slog.Error("failed to encode token JSON", "path", s.path, "error", err)
+	}
+	return t, nil
+}
+
+// getTokenSource returns a TokenSource that auto-refreshes and saves refreshed tokens back to request.token
+func (service *GmailService) getTokenSource(ctx context.Context, config *oauth2.Config) (oauth2.TokenSource, error) {
+	tokenFilePath := path.Join(service.credentialsPath, TokenFileName)
+	token, err := tokenFromFile(tokenFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read OAuth token from %s: %w. If the file is missing or corrupted, re-generate it using the CLI tool (cli/gmail)", tokenFilePath, err)
+	}
+
+	// If the token is already expired and there's no refresh token, provide a helpful error
+	if token.Expiry.Before(time.Now().Add(-1*time.Minute)) && token.RefreshToken == "" {
+		return nil, fmt.Errorf("stored OAuth token in %s is expired and has no refresh_token to refresh it. Please re-authorize to generate a new token using the CLI tool (cli/gmail)", tokenFilePath)
+	}
+
+	ts := config.TokenSource(ctx, token)
+	return &tokenSavingSource{TokenSource: ts, path: tokenFilePath}, nil
 }
