@@ -59,7 +59,8 @@ mailSelectors:
 
 callback:
   # The webhook endpoint to call with extracted values
-  url: "https://example.net/webhook"
+  # here we use host.docker.internal to access a service running on the host machine from inside the Docker container; adjust as needed for your environment
+  url: "http://host.docker.internal:8080/api" 
   # HTTP method must be one of: GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS, TRACE
   method: "POST"
   # Request timeout (Go duration format). Default is "24s" if omitted.
