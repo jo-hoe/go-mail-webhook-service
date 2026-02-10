@@ -3,7 +3,6 @@ package webhook
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/jo-hoe/go-mail-webhook-service/app/callbackfield"
 	"log"
@@ -238,39 +237,7 @@ func constructRequest(m mail.Mail, cfg *config.Config, allProtos []selector.Sele
 	return request, nil
 }
 
-func getRequestBody(m mail.Mail, nonScopeProtos []selector.SelectorPrototype) (result []byte) {
-	data := collectSelectorValues(m, nonScopeProtos)
-	if len(data) == 0 {
-		return result
-	}
 
-	result, err := json.Marshal(data)
-	if err != nil {
-		log.Printf("could not marshal data - error: %s", err)
-		result = make([]byte, 0)
-	}
-
-	return result
-}
-
-func collectSelectorValues(m mail.Mail, nonScopeProtos []selector.SelectorPrototype) map[string]string {
-	result := map[string]string{}
-
-	if len(nonScopeProtos) == 0 {
-		return result
-	}
-
-	for _, proto := range nonScopeProtos {
-		sel := proto.NewInstance()
-		if v, err := sel.SelectValue(m); err == nil {
-			if v != "" {
-				result[sel.Name()] = v
-			}
-		}
-	}
-
-	return result
-}
 
 func filterMailsBySelectors(mails []mail.Mail, protos []selector.SelectorPrototype) []mail.Mail {
 	result := make([]mail.Mail, 0)

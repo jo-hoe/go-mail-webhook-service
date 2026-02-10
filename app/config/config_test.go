@@ -72,6 +72,9 @@ callback:
 					Method:  "POST",
 					Timeout: "8s",
 					Retries: 10,
+					Attachments: AttachmentsConfig{
+						FieldPrefix: "attachment",
+					},
 				},
 			},
 			wantErr: false,
@@ -117,6 +120,9 @@ callback:
 					Method:  "POST",
 					Timeout: "24s",
 					Retries: 0,
+					Attachments: AttachmentsConfig{
+						FieldPrefix: "attachment",
+					},
 				},
 			},
 			wantErr: false,

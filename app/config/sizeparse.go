@@ -27,7 +27,7 @@ func parseSizeString(s string) (int64, error) {
 		return 0, err
 	}
 
-	var factor int64 = 1
+	var factor int64
 	switch unit {
 	case "", "b":
 		factor = 1
