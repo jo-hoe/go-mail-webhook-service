@@ -18,6 +18,9 @@ import (
 	"github.com/jo-hoe/go-mail-webhook-service/app/selector"
 )
 
+type roundTripFunc func(*http.Request) (*http.Response, error)
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
 func Test_filterMailsBySelectors(t *testing.T) {
 	type args struct {
 		mails  []mail.Mail
@@ -224,7 +227,14 @@ func Test_processMail(t *testing.T) {
 			args: args{
 				ctx: context.Background(),
 				client: &http.Client{
-					Transport: &http.Transport{},
+					Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+						return &http.Response{
+							StatusCode: 200,
+							Body:       io.NopCloser(strings.NewReader("")),
+							Header:     make(http.Header),
+							Request:    req,
+						}, nil
+					}),
 				},
 				mailService: &mail.MailClientServiceMock{},
 				mail: mail.Mail{
@@ -244,7 +254,14 @@ func Test_processMail(t *testing.T) {
 			args: args{
 				ctx: context.Background(),
 				client: &http.Client{
-					Transport: &http.Transport{},
+					Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+						return &http.Response{
+							StatusCode: 200,
+							Body:       io.NopCloser(strings.NewReader("")),
+							Header:     make(http.Header),
+							Request:    req,
+						}, nil
+					}),
 				},
 				mailService: &mail.MailClientServiceMock{},
 				mail: mail.Mail{

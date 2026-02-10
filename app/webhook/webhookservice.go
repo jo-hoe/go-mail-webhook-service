@@ -94,20 +94,22 @@ func processMail(ctx context.Context, client *http.Client, mailService mail.Mail
 		return
 	}
 
-	for range config.Callback.Retries + 1 {
-		err = sendRequest(request, client)
-		if err == nil {
-			break
+	var lastErr error
+	for attempts := 0; attempts < config.Callback.Retries+1; attempts++ {
+		lastErr = sendRequest(request, client)
+		if lastErr == nil {
+			// Success: mark as read and log success
+			if err := mailService.MarkMailAsRead(ctx, m); err != nil {
+				log.Printf("could not mark mails as read - error: %s", err)
+			}
+			log.Printf("successfully processed mail with subject: '%s' and body: '%s'\n", m.Subject, getPrefix(m.Body, 100))
+			return
 		}
-		log.Printf("could not send request - error: %s", err)
+		log.Printf("could not send request (attempt %d/%d) - error: %s", attempts+1, config.Callback.Retries+1, lastErr)
 	}
 
-	err = mailService.MarkMailAsRead(ctx, m)
-	if err != nil {
-		log.Printf("could not mark mails as read - error: %s", err)
-	}
-
-	log.Printf("successfully processed mail with subject: '%s' and body: '%s'\n", m.Subject, getPrefix(m.Body, 100))
+	// Exhausted retries: do not mark as read
+	log.Printf("exhausted retries for mail with subject: '%s'; leaving unread", m.Subject)
 }
 
 func getPrefix(input string, prefixLength int) string {
@@ -124,7 +126,7 @@ func sendRequest(request *http.Request, client *http.Client) error {
 	}
 
 	if resp.StatusCode >= 400 {
-		return fmt.Errorf("status code: %d for request: %s - %s", resp.StatusCode, request.Method, request.URL.String())
+		return fmt.Errorf("status: %d - %s for request: %s - %s", resp.StatusCode, resp.Status, request.Method, request.URL.String())
 	} else {
 		log.Printf(
 			"status code: %d for request: %s - %s\n",
