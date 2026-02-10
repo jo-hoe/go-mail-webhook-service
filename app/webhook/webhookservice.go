@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/jo-hoe/go-mail-webhook-service/app/callbackfield"
+	callbackField "github.com/jo-hoe/go-mail-webhook-service/app/callbackfield"
 	"log/slog"
 	"mime/multipart"
 	"net/http"
@@ -154,14 +154,14 @@ func constructRequest(m mail.Mail, cfg *config.Config, allProtos []selector.Sele
 	// Apply query parameters
 	q := request.URL.Query()
 	for _, kv := range cfg.Callback.QueryParams {
-		v := callbackfield.ExpandPlaceholders(kv.Value, selected)
+		v := callbackField.ExpandPlaceholders(kv.Value, selected)
 		q.Add(kv.Key, v)
 	}
 	request.URL.RawQuery = q.Encode()
 
 	// Apply headers
 	for _, kv := range cfg.Callback.Headers {
-		v := callbackfield.ExpandPlaceholders(kv.Value, selected)
+		v := callbackField.ExpandPlaceholders(kv.Value, selected)
 		request.Header.Set(kv.Key, v)
 	}
 
@@ -176,7 +176,7 @@ func constructRequest(m mail.Mail, cfg *config.Config, allProtos []selector.Sele
 
 		// Write configured form fields
 		for _, kv := range cfg.Callback.Form {
-			v := callbackfield.ExpandPlaceholders(kv.Value, selected)
+			v := callbackField.ExpandPlaceholders(kv.Value, selected)
 			_ = w.WriteField(kv.Key, v)
 		}
 
@@ -225,7 +225,7 @@ func constructRequest(m mail.Mail, cfg *config.Config, allProtos []selector.Sele
 
 	// Attach raw body if provided
 	if cfg.Callback.Body != "" {
-		bodyStr := callbackfield.ExpandPlaceholders(cfg.Callback.Body, selected)
+		bodyStr := callbackField.ExpandPlaceholders(cfg.Callback.Body, selected)
 		bodyBytes := []byte(bodyStr)
 		request.Body = ioNopCloser(bytes.NewReader(bodyBytes))
 		request.ContentLength = int64(len(bodyBytes))
