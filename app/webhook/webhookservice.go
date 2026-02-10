@@ -186,15 +186,12 @@ func constructRequest(m mail.Mail, cfg *config.Config, allProtos []selector.Sele
 		// Append attachments if enabled
 		if hasAttachments {
 			prefix := cfg.Callback.Attachments.FieldPrefix
-			if prefix == "" {
-				prefix = "attachment"
-			}
-			maxSize := cfg.Callback.Attachments.MaxSize
+			maxSizeBytes := cfg.Callback.Attachments.MaxSizeBytes
 
 			for i, a := range m.Attachments {
 				// Enforce max size if configured
-				if maxSize > 0 && len(a.Content) > maxSize {
-					log.Printf("skipping attachment '%s' due to size limit (%d > %d bytes)", a.Name, len(a.Content), maxSize)
+				if maxSizeBytes > 0 && int64(len(a.Content)) > maxSizeBytes {
+					log.Printf("skipping attachment '%s' due to size limit (%d > %d bytes)", a.Name, len(a.Content), maxSizeBytes)
 					continue
 				}
 

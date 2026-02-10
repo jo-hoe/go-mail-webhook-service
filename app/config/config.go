@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v2"
@@ -26,12 +27,13 @@ type KeyValue struct {
 	Value string `yaml:"value"` // may contain placeholders like ${SelectorName}
 }
 
-// AttachmentsConfig controls forwarding of attachments in callback requests.
+ // AttachmentsConfig controls forwarding of attachments in callback requests.
 type AttachmentsConfig struct {
 	Enabled       bool   `yaml:"enabled"`
 	FieldPrefix   string `yaml:"fieldPrefix"` // prefix for multipart field names
-	MaxSize       int    `yaml:"maxSize"`     // bytes; <=0 means no limit
+	MaxSize       string `yaml:"maxSize"`     // size string (e.g., "200Mi", "1MiB", "500MB"); empty or "0" means no limit
 	IncludeInline bool   `yaml:"includeInline"`
+	MaxSizeBytes  int64  `yaml:"-"`           // parsed bytes from MaxSize; 0 means no limit
 }
 
 func validateKeyValueList(list []KeyValue, allowHyphens bool, context string) error {
@@ -100,6 +102,10 @@ func NewConfigFromYaml(yamlBytes []byte) (*Config, error) {
 func setDefaults(config *Config) {
 	if config.Callback.Timeout == "" {
 		config.Callback.Timeout = "24s"
+	}
+	// Default FieldPrefix for attachments
+	if config.Callback.Attachments.FieldPrefix == "" {
+		config.Callback.Attachments.FieldPrefix = "attachment"
 	}
 	// CaptureGroup and Scope default via zero-values; nothing to set here
 }
@@ -190,7 +196,7 @@ func validateCallback(callback *Callback) error {
 	return nil
 }
 
-// validateAttachments checks optional attachment forwarding config.
+ // validateAttachments checks optional attachment forwarding config.
 func validateAttachments(att *AttachmentsConfig) error {
 	// FieldPrefix must be alphanumeric if provided
 	if att.FieldPrefix != "" {
@@ -199,9 +205,20 @@ func validateAttachments(att *AttachmentsConfig) error {
 			return fmt.Errorf("callback.attachments.fieldPrefix must match ^[0-9A-Za-z]+$ (got '%s')", att.FieldPrefix)
 		}
 	}
-	// MaxSize must be >= 0
-	if att.MaxSize < 0 {
+	// Parse MaxSize (string) into bytes; empty or "0" means no limit
+	sizeStr := strings.TrimSpace(att.MaxSize)
+	if sizeStr == "" || sizeStr == "0" {
+		att.MaxSizeBytes = 0
+		return nil
+	}
+	bytes, err := parseSizeString(sizeStr)
+	if err != nil {
+		return fmt.Errorf("callback.attachments.maxSize invalid '%s': %v", att.MaxSize, err)
+	}
+	if bytes < 0 {
 		return fmt.Errorf("callback.attachments.maxSize must be >= 0")
 	}
+	att.MaxSizeBytes = bytes
 	return nil
 }
+
