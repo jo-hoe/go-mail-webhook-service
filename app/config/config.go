@@ -57,6 +57,7 @@ type Config struct {
 	MailClientConfig  MailClientConfig     `yaml:"mailClientConfig"`
 	MailSelectors     []MailSelectorConfig `yaml:"mailSelectors"`
 	Callback          Callback             `yaml:"callback"`
+	LogLevel          string               `yaml:"logLevel"` // logging level: "debug" | "info" | "warn" | "error"
 }
 
 type MailClientConfig struct {
@@ -106,11 +107,24 @@ func setDefaults(config *Config) {
 	if config.Callback.Attachments.FieldPrefix == "" {
 		config.Callback.Attachments.FieldPrefix = "attachment"
 	}
+	// Default log level
+	if strings.TrimSpace(config.LogLevel) == "" {
+		config.LogLevel = "info"
+	}
 	// CaptureGroup and Scope default via zero-values; nothing to set here
 }
 
 
 func validateConfig(config *Config) error {
+	// Normalize and validate log level
+	level := strings.ToLower(strings.TrimSpace(config.LogLevel))
+	switch level {
+	case "debug", "info", "warn", "error":
+		config.LogLevel = level
+	default:
+		return fmt.Errorf("invalid logLevel '%s' (supported: debug, info, warn, error)", config.LogLevel)
+	}
+
 	// Validate selectors
 	for _, sel := range config.MailSelectors {
 		if err := validateMailSelectorConfig(&sel); err != nil {

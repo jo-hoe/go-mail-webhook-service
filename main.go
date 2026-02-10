@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"log/slog"
 	"os"
 	"path"
 
@@ -20,10 +20,27 @@ func getConfig() (*config.Config, error) {
 }
 
 func main() {
+	// initialize slog default logger
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
+
 	cfg, err := getConfig()
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("failed to load config", "error", err)
+		os.Exit(1)
 	}
+
+	// Reconfigure slog level based on config (default is info)
+	level := slog.LevelInfo
+	switch cfg.LogLevel {
+	case "debug":
+		level = slog.LevelDebug
+	case "warn":
+		level = slog.LevelWarn
+	case "error":
+		level = slog.LevelError
+	}
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: level})))
 
 	// Process config once and exit (suitable for Kubernetes Job execution)
 	webhook.NewWebhookService(cfg).Run()

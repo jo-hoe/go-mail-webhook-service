@@ -19,6 +19,8 @@
 # - callback.body: raw string body; you can build JSON or any text yourself and include placeholders
 
 # Comprehensive configuration demonstrating selectors and structured callback sections
+logLevel: "info"
+
 mailClientConfig:
   # Gmail address used by the mail client
   mail: "your-account@gmail.com"

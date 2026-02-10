@@ -5,9 +5,8 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
-	"os"
 	"reflect"
 	"strings"
 	"sync"
@@ -183,10 +182,8 @@ func headersEqual(a, b http.Header) bool {
 
 func Test_processMail(t *testing.T) {
 	var logBuffer bytes.Buffer
-	log.SetOutput(&logBuffer)
-	defer func() {
-		log.SetOutput(os.Stderr)
-	}()
+	logger := slog.New(slog.NewTextHandler(&logBuffer, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	slog.SetDefault(logger)
 	t.Log(logBuffer.String())
 
 	// Build non-scope prototypes for body
@@ -292,10 +289,8 @@ func Test_processMail(t *testing.T) {
 
 func Test_processMails(t *testing.T) {
 	var logBuffer bytes.Buffer
-	log.SetOutput(&logBuffer)
-	defer func() {
-		log.SetOutput(os.Stderr)
-	}()
+	logger := slog.New(slog.NewTextHandler(&logBuffer, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	slog.SetDefault(logger)
 	t.Log(logBuffer.String())
 
 	type args struct {

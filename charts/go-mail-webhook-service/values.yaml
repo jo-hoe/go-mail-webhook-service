@@ -84,9 +84,11 @@ mailClientCredentials:
 
 # -- The core application configuration. This renders verbatim into config/config.yaml (single object).
 # Adjust credentialsPath to match how you mount secrets into the Pod.
-config: {}
+config:
+  logLevel: "info"
 # Example:
 # config:
+#   logLevel: "info"
 #   mailClientConfig:
 #     mail: "example@gmail.com"
 #     # Set credentialsPath to the directory where the Secret is mounted

@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/jo-hoe/go-mail-webhook-service/app/callbackfield"
-	"log"
+	"log/slog"
 	"mime/multipart"
 	"net/http"
 	"path/filepath"
@@ -35,12 +35,12 @@ func (webhookService *WebhookService) Run() {
 func processWebhook(config *config.Config) {
 	mailService, err := mail.NewMailClientService(&config.MailClientConfig)
 	if err != nil {
-		log.Printf("could not create mail service - error: %s", err)
+		slog.Error("could not create mail service", "error", err)
 	}
 
 	client, err := createHttpClient(config)
 	if err != nil {
-		log.Printf("could not create http client - error: %s", err)
+		slog.Error("could not create http client", "error", err)
 	}
 
 	processMails(context.Background(), client, config, mailService)
@@ -60,21 +60,21 @@ func createHttpClient(config *config.Config) (client *http.Client, err error) {
 
 
 func processMails(ctx context.Context, client *http.Client, config *config.Config, mailService mail.MailClientService) {
-	log.Print("start reading mails\n")
+	slog.Info("start reading mails")
 	allMails, err := mailService.GetAllUnreadMail(ctx)
 	if err != nil {
-		log.Printf("read all mails - error: %s", err)
+		slog.Error("read all mails", "error", err)
 		return
 	}
 
 	allProtos, err := buildSelectorPrototypes(config)
 	if err != nil {
-		log.Printf("could not build selector prototypes - error: %s", err)
+		slog.Error("could not build selector prototypes", "error", err)
 		return
 	}
 
 	filteredMails := filterMailsBySelectors(allMails, allProtos)
-	log.Printf("number of unread mails that are in scope is: %d\n", len(filteredMails))
+	slog.Info(fmt.Sprintf("number of unread mails that are in scope is: %d", len(filteredMails)), "count", len(filteredMails))
 
 	var wg sync.WaitGroup
 	for _, m := range filteredMails {
@@ -90,7 +90,7 @@ func processMail(ctx context.Context, client *http.Client, mailService mail.Mail
 
 	request, err := constructRequest(m, config, allProtos)
 	if err != nil {
-		log.Printf("could not create request - error: %s", err)
+		slog.Error("could not create request", "error", err)
 		return
 	}
 
@@ -100,16 +100,16 @@ func processMail(ctx context.Context, client *http.Client, mailService mail.Mail
 		if lastErr == nil {
 			// Success: mark as read and log success
 			if err := mailService.MarkMailAsRead(ctx, m); err != nil {
-				log.Printf("could not mark mails as read - error: %s", err)
+				slog.Error("could not mark mails as read", "error", err, "mailId", m.Id)
 			}
-			log.Printf("successfully processed mail with subject: '%s' and body: '%s'\n", m.Subject, getPrefix(m.Body, 100))
+			slog.Info("successfully processed mail", "subject", m.Subject, "body_prefix", getPrefix(m.Body, 100))
 			return
 		}
-		log.Printf("could not send request (attempt %d/%d) - error: %s", attempts+1, config.Callback.Retries+1, lastErr)
+		slog.Error("could not send request", "attempt", attempts+1, "max_attempts", config.Callback.Retries+1, "error", lastErr)
 	}
 
 	// Exhausted retries: do not mark as read
-	log.Printf("exhausted retries for mail with subject: '%s'; leaving unread", m.Subject)
+	slog.Warn("exhausted retries for mail; leaving unread", "subject", m.Subject)
 }
 
 func getPrefix(input string, prefixLength int) string {
@@ -128,11 +128,7 @@ func sendRequest(request *http.Request, client *http.Client) error {
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("status: %d - %s for request: %s - %s", resp.StatusCode, resp.Status, request.Method, request.URL.String())
 	} else {
-		log.Printf(
-			"status code: %d for request: %s - %s\n",
-			resp.StatusCode,
-			request.Method,
-			request.URL.String())
+		slog.Info("request success", "status_code", resp.StatusCode, "method", request.Method, "url", request.URL.String())
 	}
 
 	return nil
@@ -192,7 +188,7 @@ func constructRequest(m mail.Mail, cfg *config.Config, allProtos []selector.Sele
 			for i, a := range m.Attachments {
 				// Enforce max size if configured
 				if maxSizeBytes > 0 && int64(len(a.Content)) > maxSizeBytes {
-					log.Printf("skipping attachment '%s' due to size limit (%d > %d bytes)", a.Name, len(a.Content), maxSizeBytes)
+					slog.Warn("skipping attachment due to size limit", "name", a.Name, "size_bytes", len(a.Content), "max_bytes", maxSizeBytes)
 					continue
 				}
 

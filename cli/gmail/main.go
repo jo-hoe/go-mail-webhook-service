@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"path"
@@ -14,6 +14,10 @@ import (
 )
 
 func main() {
+	// initialize slog default logger for CLI
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
+
 	args := os.Args
 	directory_of_client_secret_json := ""
 	if len(args) < 2 {
@@ -27,7 +31,7 @@ func main() {
 func generateToken(pathToClientCredentials string) {
 	config, err := mail.GetGmailConfig(pathToClientCredentials, gmail.GmailModifyScope)
 	if err != nil {
-		log.Printf("%v", err.Error())
+		slog.Error("error getting Gmail config", "error", err)
 		return
 	}
 
@@ -37,24 +41,23 @@ func generateToken(pathToClientCredentials string) {
 // Request a token from the web, then returns the retrieved token.
 func getTokenFromWeb(context context.Context, pathToClientCredentials string, config *oauth2.Config) {
 	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
-	log.Printf("go to the following link in your browser then type the "+
-		"authorization code: \n%v\n", authURL)
+	slog.Info("Open browser to authorize and paste the code", "auth_url", authURL)
 
 	http.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
 		authCode := req.URL.Query().Get("code")
 		if authCode == "" {
-			log.Printf("authCode was empty")
+			slog.Warn("authCode was empty")
 			return
 		}
 		token, err := config.Exchange(context, authCode)
 		if err != nil {
-			log.Printf("%v", err.Error())
+			slog.Error("token exchange failed", "error", err)
 			return
 		}
 
 		err = saveToken(path.Join(pathToClientCredentials, mail.TokenFileName), token)
 		if err != nil {
-			log.Printf("%v", err.Error())
+			slog.Error("failed to save token", "error", err)
 			return
 		}
 	})
@@ -66,14 +69,14 @@ func getTokenFromWeb(context context.Context, pathToClientCredentials string, co
 
 // Saves a token to a file path.
 func saveToken(path string, token *oauth2.Token) error {
-	log.Printf("saving credential file to: %s\n", path)
+	slog.Info("saving credential file", "path", path)
 	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		if cerr := file.Close(); cerr != nil {
-			log.Printf("Error closing file: %v", cerr)
+			slog.Error("Error closing file", "error", cerr)
 		}
 	}()
 	err = json.NewEncoder(file).Encode(token)

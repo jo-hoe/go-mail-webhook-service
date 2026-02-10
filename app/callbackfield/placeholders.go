@@ -1,7 +1,7 @@
 package callbackfield
 
 import (
-	"log"
+	"log/slog"
 	"regexp"
 )
 
@@ -15,7 +15,7 @@ func ExpandPlaceholders(input string, selected map[string]string) string {
 			if val, ok := selected[key]; ok {
 				return val
 			}
-			log.Printf("placeholder for selector '%s' not found or empty; substituting empty string", key)
+			slog.Warn("placeholder for selector not found or empty; substituting empty string", "selector", key)
 		}
 		return ""
 	})

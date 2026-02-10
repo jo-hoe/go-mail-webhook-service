@@ -40,6 +40,7 @@ callback:
   retries: 10`),
 			},
 			want: &Config{
+				LogLevel: "info",
 				MailClientConfig: MailClientConfig{
 					Mail:            "example@gmail.com",
 					CredentialsPath: "/path/to/client_secrets/file/",
@@ -102,6 +103,7 @@ callback:
   method: "POST"`),
 			},
 			want: &Config{
+				LogLevel: "info",
 				MailClientConfig: MailClientConfig{
 					Mail:            "example@gmail.com",
 					CredentialsPath: "/path/to/client_secrets/file/",

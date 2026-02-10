@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	gomail "net/mail"
 	"os"
@@ -120,7 +120,7 @@ func extractPlainTextBody(parts []*gmail.MessagePart) string {
 		if part.MimeType == "text/plain" {
 			data, err := base64.URLEncoding.DecodeString(part.Body.Data)
 			if err != nil {
-				log.Printf("Error decoding body data: %v", err)
+				slog.Error("Error decoding body data", "error", err)
 				continue
 			}
 			return string(data)
@@ -144,13 +144,13 @@ func extractAttachments(svc *gmail.Service, user, msgID string, parts []*gmail.M
 		if part.Filename != "" && part.Body != nil && part.Body.AttachmentId != "" {
 			att, err := svc.Users.Messages.Attachments.Get(user, msgID, part.Body.AttachmentId).Do()
 			if err != nil {
-				log.Printf("Error retrieving attachment %s: %v", part.Filename, err)
+				slog.Error("Error retrieving attachment", "filename", part.Filename, "error", err)
 				continue
 			}
 			// Gmail returns URL-safe base64 for attachments
 			data, err := base64.URLEncoding.DecodeString(att.Data)
 			if err != nil {
-				log.Printf("Error decoding attachment %s: %v", part.Filename, err)
+				slog.Error("Error decoding attachment", "filename", part.Filename, "error", err)
 				continue
 			}
 			result = append(result, Attachment{
@@ -228,7 +228,7 @@ func tokenFromFile(filePath string) (*oauth2.Token, error) {
 	}
 	defer func() {
 		if cerr := file.Close(); cerr != nil {
-			log.Printf("Error closing file: %v", cerr)
+			slog.Error("Error closing file", "error", cerr)
 		}
 	}()
 	token := &oauth2.Token{}
