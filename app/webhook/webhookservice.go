@@ -63,7 +63,7 @@ func processMails(ctx context.Context, client *http.Client, config *config.Confi
 	slog.Info("start reading mails")
 	allMails, err := mailService.GetAllUnreadMail(ctx)
 	if err != nil {
-		slog.Error("read all mails", "error", err)
+		slog.Error("error while reading all mails", "error", err)
 		return
 	}
 
