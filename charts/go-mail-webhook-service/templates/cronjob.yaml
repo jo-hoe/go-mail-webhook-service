@@ -1,4 +1,4 @@
-{{- if .Values.cronjob.enabled }}
+{{- if .Values.job.schedule }}
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -6,21 +6,17 @@ metadata:
   labels:
     {{- include "go-mail-webhook-service.labels" . | nindent 4 }}
 spec:
-  schedule: {{ .Values.cronjob.schedule | quote }}
-  concurrencyPolicy: {{ .Values.cronjob.concurrencyPolicy }}
-  {{- if .Values.cronjob.startingDeadlineSeconds }}
-  startingDeadlineSeconds: {{ .Values.cronjob.startingDeadlineSeconds }}
-  {{- end }}
-  successfulJobsHistoryLimit: {{ .Values.cronjob.successfulJobsHistoryLimit }}
-  failedJobsHistoryLimit: {{ .Values.cronjob.failedJobsHistoryLimit }}
-  suspend: {{ .Values.cronjob.suspend }}
+  schedule: {{ .Values.job.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: {{ .Values.job.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.job.failedJobsHistoryLimit }}
   jobTemplate:
     metadata:
       labels:
         {{- include "go-mail-webhook-service.labels" . | nindent 8 }}
     spec:
       backoffLimit: {{ .Values.job.backoffLimit }}
-      ttlSecondsAfterFinished: {{ .Values.cronjob.ttlSecondsAfterFinished }}
+      ttlSecondsAfterFinished: {{ .Values.job.ttlSecondsAfterFinished }}
       template:
         metadata:
           annotations:
