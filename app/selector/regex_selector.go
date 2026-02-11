@@ -6,24 +6,16 @@ import (
 	"github.com/jo-hoe/go-mail-webhook-service/app/mail"
 )
 
-// regexTarget is an internal enum representing which mail field to evaluate.
-type regexTarget int
-
-const (
-	targetSubject regexTarget = iota
-	targetBody
-	targetSender
-)
 
 // RegexSelectorPrototype is an immutable, reusable configuration for a regex selector.
 // It holds compiled regex and static attributes. Safe to share across goroutines.
 type RegexSelectorPrototype struct {
 	name         string
-	selType      string // "subjectRegex" | "bodyRegex" | "senderRegex"
-	target       regexTarget
+	selType      string // "subjectRegex" | "bodyRegex" | "senderRegex" | "recipientRegex"
 	scope        bool
 	captureGroup int
 	re           *regexp.Regexp
+	getValues    func(mail.Mail) []string
 }
 
 // RegexSelector is a stateless instance created from a RegexSelectorPrototype.
@@ -46,39 +38,41 @@ func (s *RegexSelector) Type() string {
 	return s.proto.selType
 }
 
-// SelectValue applies the regex against the configured target of the mail.
-// If it matches, it returns either the full match (captureGroup == 0)
-// or the specified capture group (>0). Otherwise returns ErrNotMatched.
+ // SelectValue applies the regex against the configured target of the mail.
+ // If it matches, it returns either the full match (captureGroup == 0)
+ // or the specified capture group (>0). Otherwise returns ErrNotMatched.
 func (s *RegexSelector) SelectValue(m mail.Mail) (string, error) {
-	var input string
-	switch s.proto.target {
-	case targetSubject:
-		input = m.Subject
-	case targetBody:
-		input = m.Body
-	case targetSender:
-		input = m.Sender
-	default:
-		// Unknown target; treat as non-match
+	if s.proto.getValues == nil {
 		return "", ErrNotMatched
 	}
-
-	// Using FindStringSubmatch to have access to capture groups
-	submatches := s.proto.re.FindStringSubmatch(input)
-	if len(submatches) == 0 {
+	values := s.proto.getValues(m)
+	if len(values) == 0 {
 		return "", ErrNotMatched
 	}
+	return s.selectFromValues(values)
+}
 
-	// captureGroup 0 means full match
-	if s.proto.captureGroup == 0 {
-		return submatches[0], nil
+
+// selectFromValues tries to match the regex against the provided values and returns the selected capture.
+func (s *RegexSelector) selectFromValues(values []string) (string, error) {
+	for _, v := range values {
+		if v == "" {
+			continue
+		}
+		sub := s.proto.re.FindStringSubmatch(v)
+		if len(sub) == 0 {
+			continue
+		}
+		// captureGroup 0 means full match
+		if s.proto.captureGroup == 0 {
+			return sub[0], nil
+		}
+		// captureGroup > 0 must be within bounds
+		if s.proto.captureGroup > 0 && s.proto.captureGroup < len(sub) {
+			return sub[s.proto.captureGroup], nil
+		}
+		// capture group out of bounds for this value; try next value
 	}
-
-	// captureGroup > 0 must be within bounds
-	if s.proto.captureGroup > 0 && s.proto.captureGroup < len(submatches) {
-		return submatches[s.proto.captureGroup], nil
-	}
-
-	// group requested but not available -> no match
 	return "", ErrNotMatched
 }
+

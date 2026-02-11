@@ -67,7 +67,7 @@ type MailClientConfig struct {
 
 type MailSelectorConfig struct {
 	Name         string `yaml:"name"`
-	Type         string `yaml:"type"`         // "subjectRegex" | "bodyRegex" | "attachmentNameRegex" | "senderRegex"
+	Type         string `yaml:"type"`         // "subjectRegex" | "bodyRegex" | "attachmentNameRegex" | "senderRegex" | "recipientRegex"
 	Pattern      string `yaml:"pattern"`      // regex pattern
 	CaptureGroup int    `yaml:"captureGroup"` // default 0 (full match)
 	Scope        bool   `yaml:"scope"`        // default false
@@ -147,9 +147,9 @@ func validateMailSelectorConfig(sel *MailSelectorConfig) error {
 		return fmt.Errorf("mailSelectors.name must match ^[0-9A-Za-z]+$: '%s'", sel.Name)
 	}
 
-	// type: support "subjectRegex", "bodyRegex", "attachmentNameRegex", and "senderRegex"
-	if sel.Type != "subjectRegex" && sel.Type != "bodyRegex" && sel.Type != "attachmentNameRegex" && sel.Type != "senderRegex" {
-		return fmt.Errorf("mailSelectors.type not supported: '%s' (supported: 'subjectRegex','bodyRegex','attachmentNameRegex','senderRegex')", sel.Type)
+	// type: support "subjectRegex", "bodyRegex", "attachmentNameRegex", "senderRegex", and "recipientRegex"
+	if sel.Type != "subjectRegex" && sel.Type != "bodyRegex" && sel.Type != "attachmentNameRegex" && sel.Type != "senderRegex" && sel.Type != "recipientRegex" {
+		return fmt.Errorf("mailSelectors.type not supported: '%s' (supported: 'subjectRegex','bodyRegex','attachmentNameRegex','senderRegex','recipientRegex')", sel.Type)
 	}
 
 	// pattern must compile

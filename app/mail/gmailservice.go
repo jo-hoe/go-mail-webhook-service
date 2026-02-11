@@ -10,6 +10,7 @@ import (
 	gomail "net/mail"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	"golang.org/x/oauth2"
@@ -59,7 +60,7 @@ func (service *GmailService) GetAllUnreadMail(context context.Context) ([]Mail, 
 		return result, fmt.Errorf("unable to retrieve messages from Gmail: %v", err)
 	}
 
-	for _, message := range resp.Messages {
+		for _, message := range resp.Messages {
 		fullMessage, err := gmailService.Users.Messages.Get(user, message.Id).Format("full").Do()
 		if err != nil {
 			return result, err
@@ -67,12 +68,14 @@ func (service *GmailService) GetAllUnreadMail(context context.Context) ([]Mail, 
 
 		subject := extractSubject(fullMessage.Payload.Headers)
 		sender := extractSender(fullMessage.Payload.Headers)
+		recipients := extractRecipients(fullMessage.Payload.Headers)
 		body := extractPlainTextBody(fullMessage.Payload.Parts)
 		attachments := extractAttachments(gmailService, user, message.Id, fullMessage.Payload.Parts)
 
 		result = append(result, Mail{
 			Id:          message.Id,
 			Sender:      sender,
+			Recipients:  recipients,
 			Subject:     subject,
 			Body:        body,
 			Attachments: attachments,
@@ -122,6 +125,59 @@ func extractSender(headers []*gmail.MessagePartHeader) string {
 		}
 	}
 	return ""
+}
+
+// extractRecipients builds a list of recipient addresses from common headers:
+// - Delivered-To (primary target mailbox; may appear multiple times)
+// - To and Cc (may contain multiple addresses)
+// Bcc is typically not visible to recipients, so it is not considered here.
+func extractRecipients(headers []*gmail.MessagePartHeader) []string {
+	var recipients []string
+	seen := map[string]bool{}
+
+	// Delivered-To may appear multiple times
+	for _, header := range headers {
+		if header.Name == "Delivered-To" {
+			if addr, err := gomail.ParseAddress(header.Value); err == nil && addr != nil {
+				if addr.Address != "" && !seen[addr.Address] {
+					seen[addr.Address] = true
+					recipients = append(recipients, addr.Address)
+				}
+			} else {
+				v := strings.TrimSpace(header.Value)
+				if v != "" && !seen[v] {
+					seen[v] = true
+					recipients = append(recipients, v)
+				}
+			}
+		}
+	}
+
+	// Parse To and Cc lists
+	for _, header := range headers {
+		if header.Name == "To" || header.Name == "Cc" {
+			if list, err := gomail.ParseAddressList(header.Value); err == nil {
+				for _, a := range list {
+					if a != nil && a.Address != "" && !seen[a.Address] {
+						seen[a.Address] = true
+						recipients = append(recipients, a.Address)
+					}
+				}
+			} else {
+				// Fallback: comma-separated
+				parts := strings.Split(header.Value, ",")
+				for _, p := range parts {
+					v := strings.TrimSpace(p)
+					if v != "" && !seen[v] {
+						seen[v] = true
+						recipients = append(recipients, v)
+					}
+				}
+			}
+		}
+	}
+
+	return recipients
 }
 
 func extractPlainTextBody(parts []*gmail.MessagePart) string {
