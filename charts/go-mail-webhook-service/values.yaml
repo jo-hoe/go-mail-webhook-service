@@ -49,7 +49,7 @@ extraVolumes: []
 job:
   enabled: false
   backoffLimit: 0
-  ttlSecondsAfterFinished: 3600
+  ttlSecondsAfterFinished: 86400
   restartPolicy: Never
   annotations: {}
   labels: {}
@@ -61,6 +61,7 @@ cronjob:
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 1
+  ttlSecondsAfterFinished: 86400
   startingDeadlineSeconds: null
   suspend: false
   annotations: {}
