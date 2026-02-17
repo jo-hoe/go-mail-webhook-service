@@ -1,8 +1,6 @@
 module github.com/jo-hoe/go-mail-webhook-service
 
-go 1.24.0
-
-toolchain go1.24.1
+go 1.24.11
 
 require (
 	golang.org/x/oauth2 v0.35.0
@@ -20,7 +18,7 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/googleapis/enterprise-certificate-proxy v0.3.11 // indirect
+	github.com/googleapis/enterprise-certificate-proxy v0.3.12 // indirect
 	github.com/googleapis/gax-go/v2 v2.17.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.65.0 // indirect
