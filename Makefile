@@ -35,20 +35,6 @@ start: ## start via docker-compose
 start-rebuild: ## rebuild and start via docker-compose
 	@${DOCKER_COMPOSE_CMD} --build
 
-.PHONY: dev-build-container
-dev-build-container: ## builds container (no registry)
-	@docker build . -t ${IMAGE_NAME}:${IMAGE_VERSION}
-
-DOCKER_START_CMD := @docker run --rm -v "${ROOT_DIR}/config/:/go/config"
-
-.PHONY: dev-exec-container
-dev-exec-container: dev-build-container ## builds container and execs into it
-	${DOCKER_START_CMD} -it --entrypoint /bin/sh ${IMAGE_NAME}:${IMAGE_VERSION}
-
-.PHONY: dev-build-start
-dev-build-start: dev-build-container ## builds and starts the container
-	${DOCKER_START_CMD} ${IMAGE_NAME}:${IMAGE_VERSION}
-
 # ----------------------
 # Helm / k3d local dev
 # ----------------------
