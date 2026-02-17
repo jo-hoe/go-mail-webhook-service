@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	callbackField "github.com/jo-hoe/go-mail-webhook-service/app/callbackfield"
 	"log/slog"
 	"mime/multipart"
 	"net/http"
@@ -12,9 +11,15 @@ import (
 	"sync"
 	"time"
 
+	callbackField "github.com/jo-hoe/go-mail-webhook-service/app/callbackfield"
+
 	"github.com/jo-hoe/go-mail-webhook-service/app/config"
 	"github.com/jo-hoe/go-mail-webhook-service/app/mail"
 	"github.com/jo-hoe/go-mail-webhook-service/app/selector"
+)
+
+const (
+	gmailClientType = "gmail"
 )
 
 type WebhookService struct {
@@ -31,11 +36,10 @@ func (webhookService *WebhookService) Run() {
 	processWebhook(webhookService.config)
 }
 
-
 func processWebhook(config *config.Config) {
 	var clientType string
 	if config.MailClient.Gmail.Enabled {
-		clientType = "gmail"
+		clientType = gmailClientType
 	} else {
 		slog.Error("no mail client enabled in configuration")
 		return
@@ -64,7 +68,6 @@ func createHttpClient(config *config.Config) (client *http.Client, err error) {
 
 	return client, nil
 }
-
 
 func processMails(ctx context.Context, client *http.Client, config *config.Config, mailService mail.MailClientService) {
 	slog.Info("start reading mails")
@@ -242,8 +245,6 @@ func constructRequest(m mail.Mail, cfg *config.Config, allProtos []selector.Sele
 	return request, nil
 }
 
-
-
 func filterMailsBySelectors(mails []mail.Mail, protos []selector.SelectorPrototype) []mail.Mail {
 	result := make([]mail.Mail, 0)
 
@@ -272,7 +273,6 @@ func filterMailsBySelectors(mails []mail.Mail, protos []selector.SelectorPrototy
 func buildSelectorPrototypes(config *config.Config) ([]selector.SelectorPrototype, error) {
 	return selector.NewSelectorPrototypes(config.MailSelectors)
 }
-
 
 // evaluateSelectorsStrict ensures every selector applies; returns error if any selector doesn't match.
 func evaluateSelectorsStrict(m mail.Mail, allProtos []selector.SelectorPrototype) (map[string]string, error) {
