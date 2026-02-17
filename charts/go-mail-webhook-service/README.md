@@ -1,6 +1,6 @@
 # go-mail-webhook-service
 
-![Version: 3.0.1](https://img.shields.io/badge/Version-3.0.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 2.2.1](https://img.shields.io/badge/AppVersion-2.2.1-informational?style=flat-square)
+![Version: 3.0.2](https://img.shields.io/badge/Version-3.0.2-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 2.2.1](https://img.shields.io/badge/AppVersion-2.2.1-informational?style=flat-square)
 
 A Helm chart for deploying go-mail-webhook-service (polls mail and triggers webhooks)
 
@@ -24,6 +24,14 @@ A Helm chart for deploying go-mail-webhook-service (polls mail and triggers webh
 | image.repository | string | `"ghcr.io/jo-hoe/go-mail-webhook-service"` |  |
 | image.tag | string | `"0.1.0"` |  |
 | imagePullSecrets | list | `[]` | Optional imagePullSecrets |
+| job | object | `{"backoffLimit":2,"executeOnStartUp":true,"failedJobsHistoryLimit":1,"restartPolicy":"Never","schedule":"0 * * * *","successfulJobsHistoryLimit":1,"ttlSecondsAfterFinished":86400}` | Job configuration |
+| job.backoffLimit | int | `2` | number of attempts for failed jobs before marking as failed (includes initial attempt, so 6 = 1 attempt + 5 retries) |
+| job.executeOnStartUp | bool | `true` | if set to true, a Job will be created with Helm hooks to run on initial deployment and when the ConfigMap changes |
+| job.failedJobsHistoryLimit | int | `1` | number of failed job history to keep |
+| job.restartPolicy | string | `"Never"` | restart policy for Pod in the Job template (kept for compatibility with existing templates) |
+| job.schedule | string | `"0 * * * *"` | schedule expression for scheduling of job (cron format) default is beginning of every hour |
+| job.successfulJobsHistoryLimit | int | `1` | number of successful job history to keep |
+| job.ttlSecondsAfterFinished | int | `86400` | time to live after job completion in seconds (cleanup), default is 1 day |
 | mailClientCredentials.create | bool | `false` |  |
 | mailClientCredentials.credentialsBase64 | string | `""` |  |
 | mailClientCredentials.filename | string | `"client_secret.json"` |  |

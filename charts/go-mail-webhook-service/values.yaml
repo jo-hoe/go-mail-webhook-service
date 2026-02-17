@@ -45,6 +45,23 @@ affinity: {}
 extraVolumeMounts: []
 extraVolumes: []
 
+# -- Job configuration
+job:
+  # -- schedule expression for scheduling of job (cron format)
+  # default is beginning of every hour
+  schedule: "0 * * * *"
+  # -- if set to true, a Job will be created with Helm hooks to run on initial deployment and when the ConfigMap changes
+  executeOnStartUp: true
+  # -- number of successful job history to keep
+  successfulJobsHistoryLimit: 1
+  # -- number of failed job history to keep
+  failedJobsHistoryLimit: 1
+  # -- number of attempts for failed jobs before marking as failed (includes initial attempt, so 6 = 1 attempt + 5 retries)
+  backoffLimit: 2
+  # -- time to live after job completion in seconds (cleanup), default is 1 day
+  ttlSecondsAfterFinished: 86400
+  # -- restart policy for Pod in the Job template (kept for compatibility with existing templates)
+  restartPolicy: Never
 
 # -- Environment variables for the container
 env: []
