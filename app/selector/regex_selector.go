@@ -6,7 +6,6 @@ import (
 	"github.com/jo-hoe/go-mail-webhook-service/app/mail"
 )
 
-
 // RegexSelectorPrototype is an immutable, reusable configuration for a regex selector.
 // It holds compiled regex and static attributes. Safe to share across goroutines.
 type RegexSelectorPrototype struct {
@@ -37,9 +36,9 @@ func (s *RegexSelector) Type() string {
 	return s.proto.selType
 }
 
- // SelectValue applies the regex against the configured target of the mail.
- // If it matches, it returns either the full match (captureGroup == 0)
- // or the specified capture group (>0). Otherwise returns ErrNotMatched.
+// SelectValue applies the regex against the configured target of the mail.
+// If it matches, it returns either the full match (captureGroup == 0)
+// or the specified capture group (>0). Otherwise returns ErrNotMatched.
 func (s *RegexSelector) SelectValue(m mail.Mail) (string, error) {
 	if s.proto.getValues == nil {
 		return "", ErrNotMatched
@@ -50,7 +49,6 @@ func (s *RegexSelector) SelectValue(m mail.Mail) (string, error) {
 	}
 	return s.selectFromValues(values)
 }
-
 
 // selectFromValues tries to match the regex against the provided values and returns the selected capture.
 func (s *RegexSelector) selectFromValues(values []string) (string, error) {
@@ -74,4 +72,3 @@ func (s *RegexSelector) selectFromValues(values []string) (string, error) {
 	}
 	return "", ErrNotMatched
 }
-

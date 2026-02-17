@@ -9,8 +9,8 @@ import (
 
 // AttachmentNameRegexSelectorPrototype is an immutable configuration for an attachment name regex selector.
 type AttachmentNameRegexSelectorPrototype struct {
-	name  string
-	re    *regexp.Regexp
+	name string
+	re   *regexp.Regexp
 }
 
 type AttachmentNameRegexSelector struct {
@@ -40,4 +40,3 @@ func (s *AttachmentNameRegexSelector) SelectValue(m mail.Mail) (string, error) {
 	}
 	return "", ErrNotMatched
 }
-

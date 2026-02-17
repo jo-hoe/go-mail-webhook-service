@@ -57,7 +57,7 @@ func (service *GmailService) GetAllUnreadMail(context context.Context) ([]Mail, 
 		return result, fmt.Errorf("unable to retrieve messages from Gmail: %v", err)
 	}
 
-		for _, message := range resp.Messages {
+	for _, message := range resp.Messages {
 		fullMessage, err := gmailService.Users.Messages.Get(user, message.Id).Format("full").Do()
 		if err != nil {
 			return result, err
@@ -255,8 +255,7 @@ func GetGmailConfig(credentialsPath string, scope ...string) (*oauth2.Config, er
 	return google.ConfigFromJSON(b, scope...)
 }
 
-
- // Retrieves a token from a local file.
+// Retrieves a token from a local file.
 func tokenFromFile(filePath string) (*oauth2.Token, error) {
 	file, err := os.Open(filePath)
 	if err != nil {

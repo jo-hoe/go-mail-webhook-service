@@ -21,18 +21,18 @@ var supportHttpMethods = map[string]bool{
 	http.MethodTrace:   true,
 }
 
- // KeyValue represents a simple key/value pair in the callback config.
+// KeyValue represents a simple key/value pair in the callback config.
 type KeyValue struct {
 	Key   string `yaml:"key"`
 	Value string `yaml:"value"` // may contain placeholders like ${SelectorName}
 }
 
- // AttachmentsConfig controls forwarding of attachments in callback requests.
+// AttachmentsConfig controls forwarding of attachments in callback requests.
 type AttachmentsConfig struct {
-	Enabled       bool   `yaml:"enabled"`
-	FieldPrefix   string `yaml:"fieldPrefix"` // prefix for multipart field names
-	MaxSize       string `yaml:"maxSize"`     // size string (e.g., "200Mi", "1MiB", "500MB"); empty or "0" means no limit
-	MaxSizeBytes  int64  `yaml:"-"`           // parsed bytes from MaxSize; 0 means no limit
+	Enabled      bool   `yaml:"enabled"`
+	FieldPrefix  string `yaml:"fieldPrefix"` // prefix for multipart field names
+	MaxSize      string `yaml:"maxSize"`     // size string (e.g., "200Mi", "1MiB", "500MB"); empty or "0" means no limit
+	MaxSizeBytes int64  `yaml:"-"`           // parsed bytes from MaxSize; 0 means no limit
 }
 
 func validateKeyValueList(list []KeyValue, allowHyphens bool, context string) error {
@@ -54,12 +54,11 @@ func validateKeyValueList(list []KeyValue, allowHyphens bool, context string) er
 }
 
 type Config struct {
-	MailClient       MailClient            `yaml:"mailClient"`
-	MailSelectors    []MailSelectorConfig  `yaml:"mailSelectors"`
-	Callback         Callback              `yaml:"callback"`
-	LogLevel         string                `yaml:"logLevel"` // logging level: "debug" | "info" | "warn" | "error"
+	MailClient    MailClient           `yaml:"mailClient"`
+	MailSelectors []MailSelectorConfig `yaml:"mailSelectors"`
+	Callback      Callback             `yaml:"callback"`
+	LogLevel      string               `yaml:"logLevel"` // logging level: "debug" | "info" | "warn" | "error"
 }
-
 
 type MailSelectorConfig struct {
 	Name         string `yaml:"name"`
@@ -120,7 +119,6 @@ func setDefaults(config *Config) {
 	}
 	// CaptureGroup defaults via zero-values; nothing to set here
 }
-
 
 func validateConfig(config *Config) error {
 	// Normalize and validate log level
@@ -221,7 +219,7 @@ func validateCallback(callback *Callback) error {
 	return nil
 }
 
- // validateAttachments checks optional attachment forwarding config.
+// validateAttachments checks optional attachment forwarding config.
 func validateAttachments(att *AttachmentsConfig) error {
 	// FieldPrefix must be alphanumeric if provided
 	if att.FieldPrefix != "" {
@@ -246,4 +244,3 @@ func validateAttachments(att *AttachmentsConfig) error {
 	att.MaxSizeBytes = bytes
 	return nil
 }
-
