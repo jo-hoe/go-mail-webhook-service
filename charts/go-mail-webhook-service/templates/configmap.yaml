@@ -10,4 +10,5 @@ data:
     {{- $_ := set $cfg "logLevel" .Values.logLevel -}}
     {{- $_ := set $cfg "mailSelectors" .Values.mailSelectors -}}
     {{- $_ := set $cfg "callback" .Values.callback -}}
+    {{- $_ := set $cfg "mailClient" .Values.mailClient -}}
     {{- toYaml $cfg | nindent 4 }}

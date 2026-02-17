@@ -15,16 +15,14 @@ A Helm chart for deploying go-mail-webhook-service (polls mail and triggers webh
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` |  |
-| callback | object | `{}` | Application callback configuration rendered into /go/config/config.yaml |
-| logLevel | string | `"info"` | Application log level rendered into /go/config/config.yaml |
-| mailSelectors | list | `[]` | Selector definitions rendered into /go/config/config.yaml |
+| callback | object | `{}` |  |
 | env | list | `[]` | Environment variables for the container |
 | extraVolumeMounts | list | `[]` |  |
 | extraVolumes | list | `[]` |  |
 | fullnameOverride | string | `""` |  |
 | image.pullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"ghcr.io/jo-hoe/go-mail-webhook-service"` |  |
-| image.tag | string | `""` | If empty, defaults to Chart.AppVersion |
+| image.tag | string | `""` |  |
 | imagePullSecrets | list | `[]` | Optional imagePullSecrets |
 | job | object | `{"backoffLimit":2,"executeOnStartUp":true,"failedJobsHistoryLimit":1,"restartPolicy":"Never","schedule":"0 * * * *","successfulJobsHistoryLimit":1,"ttlSecondsAfterFinished":86400}` | Job configuration |
 | job.backoffLimit | int | `2` | number of attempts for failed jobs before marking as failed (includes initial attempt, so 6 = 1 attempt + 5 retries) |
@@ -34,13 +32,11 @@ A Helm chart for deploying go-mail-webhook-service (polls mail and triggers webh
 | job.schedule | string | `"0 * * * *"` | schedule expression for scheduling of job (cron format) default is beginning of every hour |
 | job.successfulJobsHistoryLimit | int | `1` | number of successful job history to keep |
 | job.ttlSecondsAfterFinished | int | `86400` | time to live after job completion in seconds (cleanup), default is 1 day |
-| mailClientCredentials.create | bool | `false` |  |
-| mailClientCredentials.credentialsBase64 | string | `""` |  |
-| mailClientCredentials.filename | string | `"client_secret.json"` |  |
-| mailClientCredentials.mountPath | string | `"/secrets/mail"` |  |
-| mailClientCredentials.name | string | `""` |  |
-| mailClientCredentials.tokenBase64 | string | `""` |  |
-| mailClientCredentials.tokenFilename | string | `"request.token"` |  |
+| logLevel | string | `"info"` | Application configuration (rendered into /go/config/config.yaml) |
+| mailClient.gmail.mountPath | string | `"/secrets/mail"` | defines where the secret is mounted in the container (used by the app) |
+| mailClient.gmail.secret | object | `{"create":false,"credentialsBase64":"","filename":"client_secret.json","name":"","tokenBase64":"","tokenFilename":"request.token"}` | creation and content options for client credentials and token |
+| mailClient.type | string | `"gmail"` | which mail client to use |
+| mailSelectors | list | `[]` | Provide empty defaults so templates resolve keys; override in your values when deploying example mailSelectors:   - name: "OrderId"     type: "subjectRegex"     pattern: "Order ([0-9]+) confirmed"     captureGroup: 1   - name: "Amount"     type: "bodyRegex"     pattern: "Total: \\$([0-9]+\\.[0-9]{2})"     captureGroup: 1 |
 | nameOverride | string | `""` |  |
 | nodeSelector | object | `{}` |  |
 | podAnnotations | object | `{}` |  |

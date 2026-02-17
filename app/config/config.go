@@ -54,9 +54,10 @@ func validateKeyValueList(list []KeyValue, allowHyphens bool, context string) er
 }
 
 type Config struct {
-	MailSelectors     []MailSelectorConfig `yaml:"mailSelectors"`
-	Callback          Callback             `yaml:"callback"`
-	LogLevel          string               `yaml:"logLevel"` // logging level: "debug" | "info" | "warn" | "error"
+	MailClient       MailClient            `yaml:"mailClient"`
+	MailSelectors    []MailSelectorConfig  `yaml:"mailSelectors"`
+	Callback         Callback              `yaml:"callback"`
+	LogLevel         string                `yaml:"logLevel"` // logging level: "debug" | "info" | "warn" | "error"
 }
 
 
@@ -65,6 +66,10 @@ type MailSelectorConfig struct {
 	Type         string `yaml:"type"`         // "subjectRegex" | "bodyRegex" | "attachmentNameRegex" | "senderRegex" | "recipientRegex"
 	Pattern      string `yaml:"pattern"`      // regex pattern
 	CaptureGroup int    `yaml:"captureGroup"` // default 0 (full match)
+}
+
+type MailClient struct {
+	Type string `yaml:"type"` // default "gmail"
 }
 
 type Callback struct {
@@ -105,6 +110,10 @@ func setDefaults(config *Config) {
 	if strings.TrimSpace(config.LogLevel) == "" {
 		config.LogLevel = "info"
 	}
+	// Default mail client type
+	if strings.TrimSpace(config.MailClient.Type) == "" {
+		config.MailClient.Type = "gmail"
+	}
 	// CaptureGroup defaults via zero-values; nothing to set here
 }
 
@@ -124,6 +133,14 @@ func validateConfig(config *Config) error {
 		if err := validateMailSelectorConfig(&sel); err != nil {
 			return err
 		}
+	}
+
+	// Validate mail client type
+	switch strings.ToLower(strings.TrimSpace(config.MailClient.Type)) {
+	case "gmail":
+		// ok
+	default:
+		return fmt.Errorf("unsupported mailClient.type '%s' (supported: gmail)", config.MailClient.Type)
 	}
 
 	// Validate callback

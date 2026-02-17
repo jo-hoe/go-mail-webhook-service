@@ -33,7 +33,7 @@ func (webhookService *WebhookService) Run() {
 
 
 func processWebhook(config *config.Config) {
-	mailService, err := mail.NewMailClientService()
+	mailService, err := mail.NewMailClientService(config.MailClient.Type)
 	if err != nil {
 		slog.Error("could not create mail service", "error", err)
 	}

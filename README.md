@@ -16,7 +16,8 @@ Webhook allows to pull mails and send requests to a callback URL.
 Currently, the only supported mail client is GMail.
 You will need the client credentials file, which you should set to the name `client_secret.json` and the `request.token` file.
 An example of creating it is described [in this README](cli/gmail/README.md).
-Once created, use the [configuration file](#configuration-example) to set the directory where both files are stored.
+Once created, mount client_secret.json and request.token into the container at /secrets/mail.
+When deploying via Helm, optionally create or reference a Secret via mailClient.gmail.secret.* values (the chart mounts it at /secrets/mail).
 
 ### Optional Components
 

@@ -36,6 +36,9 @@ callback:
 		},
 		want: &Config{
 			LogLevel: "info",
+			MailClient: MailClient{
+				Type: "gmail",
+			},
 			MailSelectors: []MailSelectorConfig{
 				{
 					Name:         "subjectScope",
@@ -88,6 +91,9 @@ callback:
 		},
 		want: &Config{
 			LogLevel: "info",
+			MailClient: MailClient{
+				Type: "gmail",
+			},
 			MailSelectors: []MailSelectorConfig{
 				{
 					Name:         "subjectScope",

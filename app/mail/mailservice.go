@@ -2,6 +2,8 @@ package mail
 
 import (
 	"context"
+	"fmt"
+	"strings"
 )
 
 type MailClientService interface {
@@ -25,7 +27,14 @@ type Mail struct {
 
 const DefaultCredentialsPath = "/secrets/mail"
 
-func NewMailClientService() (MailClientService, error) {
-	// Only Gmail is supported; use default mounted credentials path
-	return NewGmailService(DefaultCredentialsPath), nil
+// NewMailClientService is a factory that creates a concrete MailClientService based on the provided client type.
+// Currently supported types: "gmail"
+func NewMailClientService(clientType string) (MailClientService, error) {
+	switch strings.ToLower(strings.TrimSpace(clientType)) {
+	case "", "gmail":
+		// Gmail client: use default mounted credentials path
+		return NewGmailService(DefaultCredentialsPath), nil
+	default:
+		return nil, fmt.Errorf("unsupported mail client type: %s", clientType)
+	}
 }

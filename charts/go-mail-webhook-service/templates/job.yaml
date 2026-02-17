@@ -48,8 +48,8 @@ spec:
             - mountPath: /go/config
               name: {{ include "go-mail-webhook-service.fullname" . }}-config-volume
               readOnly: true
-            {{- if or .Values.mailClientCredentials.create .Values.mailClientCredentials.name }}
-            - mountPath: {{ .Values.mailClientCredentials.mountPath }}
+            {{- if and (eq .Values.mailClient.type "gmail") (or .Values.mailClient.gmail.secret.create .Values.mailClient.gmail.secret.name) }}
+            - mountPath: {{ .Values.mailClient.gmail.mountPath }}
               name: {{ include "go-mail-webhook-service.fullname" . }}-mail-credentials
               readOnly: true
             {{- end }}
@@ -63,10 +63,10 @@ spec:
             items:
               - key: config.yaml
                 path: config.yaml
-        {{- if or .Values.mailClientCredentials.create .Values.mailClientCredentials.name }}
+        {{- if and (eq .Values.mailClient.type "gmail") (or .Values.mailClient.gmail.secret.create .Values.mailClient.gmail.secret.name) }}
         - name: {{ include "go-mail-webhook-service.fullname" . }}-mail-credentials
           secret:
-            secretName: {{ if .Values.mailClientCredentials.name }}{{ .Values.mailClientCredentials.name }}{{ else }}{{ include "go-mail-webhook-service.fullname" . }}-mail-credentials{{ end }}
+            secretName: {{ if .Values.mailClient.gmail.secret.name }}{{ .Values.mailClient.gmail.secret.name }}{{ else }}{{ include "go-mail-webhook-service.fullname" . }}-mail-credentials{{ end }}
         {{- end }}
         {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}
