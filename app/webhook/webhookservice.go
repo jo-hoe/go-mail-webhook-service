@@ -84,7 +84,7 @@ func processMails(ctx context.Context, client *http.Client, config *config.Confi
 	}
 
 	filteredMails := filterMailsBySelectors(allMails, allProtos)
-	slog.Info(fmt.Sprintf("number of unread mails matching all selectors is: %d", len(filteredMails)), "count", len(filteredMails))
+	slog.Info(fmt.Sprintf("number of unread mails matching all selectors is: %d", len(filteredMails)))
 
 	var wg sync.WaitGroup
 	for _, m := range filteredMails {
