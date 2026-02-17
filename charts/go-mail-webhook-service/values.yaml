@@ -71,11 +71,11 @@ env: []
 
 # Mail client configuration
 mailClient:
-  # -- which mail client to use
-  type: "gmail"
   gmail:
+    # -- enable Gmail client
+    enabled: true
     # -- creation and content options for client credentials and token
-    secret:
+    secrets:
       create: false
       name: ""
       credentialsBase64: ""

@@ -68,8 +68,12 @@ type MailSelectorConfig struct {
 	CaptureGroup int    `yaml:"captureGroup"` // default 0 (full match)
 }
 
+type GmailClient struct {
+	Enabled bool `yaml:"enabled"`
+}
+
 type MailClient struct {
-	Type string `yaml:"type"` // default "gmail"
+	Gmail GmailClient `yaml:"gmail"`
 }
 
 type Callback struct {
@@ -110,9 +114,9 @@ func setDefaults(config *Config) {
 	if strings.TrimSpace(config.LogLevel) == "" {
 		config.LogLevel = "info"
 	}
-	// Default mail client type
-	if strings.TrimSpace(config.MailClient.Type) == "" {
-		config.MailClient.Type = "gmail"
+	// Default mail client: enable gmail by default
+	if !config.MailClient.Gmail.Enabled {
+		config.MailClient.Gmail.Enabled = true
 	}
 	// CaptureGroup defaults via zero-values; nothing to set here
 }
@@ -135,12 +139,9 @@ func validateConfig(config *Config) error {
 		}
 	}
 
-	// Validate mail client type
-	switch strings.ToLower(strings.TrimSpace(config.MailClient.Type)) {
-	case "gmail":
-		// ok
-	default:
-		return fmt.Errorf("unsupported mailClient.type '%s' (supported: gmail)", config.MailClient.Type)
+	// Validate mail client enablement
+	if !config.MailClient.Gmail.Enabled {
+		return fmt.Errorf("no mail client enabled; set mailClient.gmail.enabled: true")
 	}
 
 	// Validate callback
