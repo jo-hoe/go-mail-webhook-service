@@ -1,5 +1,5 @@
 # Default values for go-mail-webhook-service.
-# Application config is defined via top-level keys (logLevel, mailClientConfig, mailSelectors, callback).
+# Application config is defined via top-level keys (logLevel, mailSelectors, callback).
 # The resulting ConfigMap renders to /go/config/config.yaml inside the container.
 
 image:
@@ -86,11 +86,6 @@ mailClientCredentials:
 # -- Application configuration (rendered into /go/config/config.yaml)
 logLevel: "info"
 # Provide empty defaults so templates resolve keys; override in your values when deploying
-# mailClientConfig:
-#   mail: "example@gmail.com"
-#   # Set credentialsPath to the directory where the Secret is mounted
-#   credentialsPath: "/secrets/mail"
-mailClientConfig: {}
 mailSelectors: []
 callback: {}
 

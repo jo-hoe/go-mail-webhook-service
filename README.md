@@ -42,10 +42,6 @@ Placeholders:
 Example:
 
 ```yaml
-mailClientConfig:
-  mail: "example@gmail.com"
-  credentialsPath: "/secrets/mail"
-
 mailSelectors:
   - name: "OrderId"
     type: "subjectRegex"

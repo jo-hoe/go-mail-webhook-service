@@ -54,16 +54,11 @@ func validateKeyValueList(list []KeyValue, allowHyphens bool, context string) er
 }
 
 type Config struct {
-	MailClientConfig  MailClientConfig     `yaml:"mailClientConfig"`
 	MailSelectors     []MailSelectorConfig `yaml:"mailSelectors"`
 	Callback          Callback             `yaml:"callback"`
 	LogLevel          string               `yaml:"logLevel"` // logging level: "debug" | "info" | "warn" | "error"
 }
 
-type MailClientConfig struct {
-	Mail            string `yaml:"mail"`
-	CredentialsPath string `yaml:"credentialsPath"`
-}
 
 type MailSelectorConfig struct {
 	Name         string `yaml:"name"`

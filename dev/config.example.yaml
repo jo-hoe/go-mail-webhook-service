@@ -24,12 +24,6 @@
 # Comprehensive configuration demonstrating selectors and structured callback sections
 logLevel: "info"
 
-mailClientConfig:
-  # Gmail address used by the mail client
-  mail: "your-account@gmail.com"
-  # Path to the directory containing OAuth2 credentials JSON inside the container
-  # Mount a Kubernetes Secret at this directory (e.g., /secrets/mail)
-  credentialsPath: "/secrets/mail"
 
 mailSelectors:
   # Extract numeric Order ID from the email subject
@@ -104,9 +98,6 @@ callback:
 
 # Minimal configuration (GET with query param)
 # Uncomment below to use a minimal example instead of the comprehensive one
-# mailClientConfig:
-#   mail: "your-account@gmail.com"
-#   credentialsPath: "/secrets/mail"
 #
 # mailSelectors:
 #   # Capture a URL from the email body (full match)

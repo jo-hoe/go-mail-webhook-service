@@ -8,7 +8,6 @@ data:
   config.yaml: |-
     {{- $cfg := dict -}}
     {{- $_ := set $cfg "logLevel" .Values.logLevel -}}
-    {{- $_ := set $cfg "mailClientConfig" .Values.mailClientConfig -}}
     {{- $_ := set $cfg "mailSelectors" .Values.mailSelectors -}}
     {{- $_ := set $cfg "callback" .Values.callback -}}
     {{- toYaml $cfg | nindent 4 }}

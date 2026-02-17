@@ -17,7 +17,6 @@ A Helm chart for deploying go-mail-webhook-service (polls mail and triggers webh
 | affinity | object | `{}` |  |
 | callback | object | `{}` | Application callback configuration rendered into /go/config/config.yaml |
 | logLevel | string | `"info"` | Application log level rendered into /go/config/config.yaml |
-| mailClientConfig | object | `{}` | Mail client configuration rendered into /go/config/config.yaml |
 | mailSelectors | list | `[]` | Selector definitions rendered into /go/config/config.yaml |
 | env | list | `[]` | Environment variables for the container |
 | extraVolumeMounts | list | `[]` |  |

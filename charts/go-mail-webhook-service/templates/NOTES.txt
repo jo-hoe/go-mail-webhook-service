@@ -4,7 +4,7 @@
    The application reads its configuration from:
      /go/config/config.yaml
    This file is rendered from top-level chart values:
-     logLevel, mailClientConfig, mailSelectors, callback
+     logLevel, mailSelectors, callback
    Edit your values and upgrade:
      helm upgrade {{ .Release.Name }} {{ .Chart.Name }} -f your-values.yaml
 

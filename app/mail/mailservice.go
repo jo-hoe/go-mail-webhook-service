@@ -2,10 +2,6 @@ package mail
 
 import (
 	"context"
-	"fmt"
-	"strings"
-
-	"github.com/jo-hoe/go-mail-webhook-service/app/config"
 )
 
 type MailClientService interface {
@@ -27,12 +23,9 @@ type Mail struct {
 	Attachments []Attachment
 }
 
-func NewMailClientService(mailClientConfig *config.MailClientConfig) (MailClientService, error) {
-	for _, domainName := range GMailDomainNames {
-		if strings.HasSuffix(mailClientConfig.Mail, fmt.Sprintf("@%s", domainName)) {
-			return NewGmailService(mailClientConfig.CredentialsPath), nil
-		}
-	}
+const DefaultCredentialsPath = "/secrets/mail"
 
-	return nil, fmt.Errorf("%s has an unsupported domain name", mailClientConfig.Mail)
+func NewMailClientService() (MailClientService, error) {
+	// Only Gmail is supported; use default mounted credentials path
+	return NewGmailService(DefaultCredentialsPath), nil
 }

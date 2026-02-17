@@ -14,14 +14,10 @@ func TestNewConfig(t *testing.T) {
 		args    args
 		want    *Config
 		wantErr bool
-	}{
-		{
-			name: "positive test",
-			args: args{
-				yamlBytes: []byte(`
-mailClientConfig: 
-  mail: "example@gmail.com"
-  credentialsPath: "/path/to/client_secrets/file/"
+	}{{
+		name: "positive test",
+		args: args{
+			yamlBytes: []byte(`
 mailSelectors:
 - name: "subjectScope"
   type: "subjectRegex"
@@ -37,58 +33,51 @@ callback:
   method: "POST"
   timeout: 8s
   retries: 10`),
-			},
-			want: &Config{
-				LogLevel: "info",
-				MailClientConfig: MailClientConfig{
-					Mail:            "example@gmail.com",
-					CredentialsPath: "/path/to/client_secrets/file/",
+		},
+		want: &Config{
+			LogLevel: "info",
+			MailSelectors: []MailSelectorConfig{
+				{
+					Name:         "subjectScope",
+					Type:         "subjectRegex",
+					Pattern:      ".*",
+					CaptureGroup: 0,
 				},
-				MailSelectors: []MailSelectorConfig{
-					{
-						Name:         "subjectScope",
-						Type:         "subjectRegex",
-						Pattern:      ".*",
-						CaptureGroup: 0,
-					},
-					{
-						Name:         "test",
-						Type:         "bodyRegex",
-						Pattern:      "[a-z]{0,6}",
-						CaptureGroup: 0,
-					},
-					{
-						Name:         "test2",
-						Type:         "bodyRegex",
-						Pattern:      ".*",
-						CaptureGroup: 0,
-					},
+				{
+					Name:         "test",
+					Type:         "bodyRegex",
+					Pattern:      "[a-z]{0,6}",
+					CaptureGroup: 0,
 				},
-				Callback: Callback{
-					Url:     "https://example.com/callback",
-					Method:  "POST",
-					Timeout: "8s",
-					Retries: 10,
-					Attachments: AttachmentsConfig{
-						FieldPrefix: "attachment",
-					},
+				{
+					Name:         "test2",
+					Type:         "bodyRegex",
+					Pattern:      ".*",
+					CaptureGroup: 0,
 				},
 			},
-			wantErr: false,
-		}, {
-			name: "negative test",
-			args: args{
-				yamlBytes: []byte(`invalid yaml`),
+			Callback: Callback{
+				Url:     "https://example.com/callback",
+				Method:  "POST",
+				Timeout: "8s",
+				Retries: 10,
+				Attachments: AttachmentsConfig{
+					FieldPrefix: "attachment",
+				},
 			},
-			want:    nil,
-			wantErr: true,
-		}, {
-			name: "test defaults",
-			args: args{
-				yamlBytes: []byte(`
-mailClientConfig: 
-  mail: "example@gmail.com"
-  credentialsPath: "/path/to/client_secrets/file/"
+		},
+		wantErr: false,
+	}, {
+		name: "negative test",
+		args: args{
+			yamlBytes: []byte(`invalid yaml`),
+		},
+		want:    nil,
+		wantErr: true,
+	}, {
+		name: "test defaults",
+		args: args{
+			yamlBytes: []byte(`
 mailSelectors:
 - name: "subjectScope"
   type: "subjectRegex"
@@ -96,39 +85,32 @@ mailSelectors:
 callback:
   url: "https://example.com/callback"
   method: "POST"`),
-			},
-			want: &Config{
-				LogLevel: "info",
-				MailClientConfig: MailClientConfig{
-					Mail:            "example@gmail.com",
-					CredentialsPath: "/path/to/client_secrets/file/",
-				},
-				MailSelectors: []MailSelectorConfig{
-					{
-						Name:         "subjectScope",
-						Type:         "subjectRegex",
-						Pattern:      ".*",
-						CaptureGroup: 0,
-					},
-				},
-				Callback: Callback{
-					Url:     "https://example.com/callback",
-					Method:  "POST",
-					Timeout: "24s",
-					Retries: 0,
-					Attachments: AttachmentsConfig{
-						FieldPrefix: "attachment",
-					},
+		},
+		want: &Config{
+			LogLevel: "info",
+			MailSelectors: []MailSelectorConfig{
+				{
+					Name:         "subjectScope",
+					Type:         "subjectRegex",
+					Pattern:      ".*",
+					CaptureGroup: 0,
 				},
 			},
-			wantErr: false,
-		}, {
-			name: "test unsupported http method",
-			args: args{
-				yamlBytes: []byte(`
-mailClientConfig: 
-  mail: "example@gmail.com"
-  credentialsPath: "/path/to/client_secrets/file/"
+			Callback: Callback{
+				Url:     "https://example.com/callback",
+				Method:  "POST",
+				Timeout: "24s",
+				Retries: 0,
+				Attachments: AttachmentsConfig{
+					FieldPrefix: "attachment",
+				},
+			},
+		},
+		wantErr: false,
+	}, {
+		name: "test unsupported http method",
+		args: args{
+			yamlBytes: []byte(`
 mailSelectors:
 - name: "subjectScope"
   type: "subjectRegex"
@@ -136,11 +118,10 @@ mailSelectors:
 callback:
   url: "https://example.com/callback"
   method: "invalid"`),
-			},
-			want:    nil,
-			wantErr: true,
 		},
-	}
+		want:    nil,
+		wantErr: true,
+	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := NewConfigFromYaml(tt.args.yamlBytes)
