@@ -1,6 +1,6 @@
 # go-mail-webhook-service
 
-![Version: 3.0.2](https://img.shields.io/badge/Version-3.0.2-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 2.2.1](https://img.shields.io/badge/AppVersion-2.2.1-informational?style=flat-square)
+![Version: 5.0.0](https://img.shields.io/badge/Version-5.0.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 3.0.0](https://img.shields.io/badge/AppVersion-3.0.0-informational?style=flat-square)
 
 A Helm chart for deploying go-mail-webhook-service (polls mail and triggers webhooks)
 
@@ -33,9 +33,9 @@ A Helm chart for deploying go-mail-webhook-service (polls mail and triggers webh
 | job.successfulJobsHistoryLimit | int | `1` | number of successful job history to keep |
 | job.ttlSecondsAfterFinished | int | `86400` | time to live after job completion in seconds (cleanup), default is 1 day |
 | logLevel | string | `"info"` | Application configuration (rendered into /go/config/config.yaml) |
+| mailClient.gmail.enabled | bool | `true` | enable Gmail client |
 | mailClient.gmail.mountPath | string | `"/secrets/mail"` | defines where the secret is mounted in the container (used by the app) |
-| mailClient.gmail.secret | object | `{"create":false,"credentialsBase64":"","filename":"client_secret.json","name":"","tokenBase64":"","tokenFilename":"request.token"}` | creation and content options for client credentials and token |
-| mailClient.type | string | `"gmail"` | which mail client to use |
+| mailClient.gmail.secrets | object | `{"create":false,"credentialsBase64":"","filename":"client_secret.json","name":"","tokenBase64":"","tokenFilename":"request.token"}` | creation and content options for client credentials and token |
 | mailSelectors | list | `[]` | Provide empty defaults so templates resolve keys; override in your values when deploying example mailSelectors:   - name: "OrderId"     type: "subjectRegex"     pattern: "Order ([0-9]+) confirmed"     captureGroup: 1   - name: "Amount"     type: "bodyRegex"     pattern: "Total: \\$([0-9]+\\.[0-9]{2})"     captureGroup: 1 |
 | nameOverride | string | `""` |  |
 | nodeSelector | object | `{}` |  |
