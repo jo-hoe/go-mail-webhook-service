@@ -3,6 +3,7 @@ package webhook
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"mime/multipart"
@@ -245,6 +246,35 @@ func constructRequest(m mail.Mail, cfg *config.Config, allProtos []selector.Sele
 	return request, nil
 }
 
+func evaluateSelectorsCore(m mail.Mail, protos []selector.SelectorPrototype, collectValues bool) (map[string]string, error) {
+	var result map[string]string
+	if collectValues {
+		result = map[string]string{}
+	}
+
+	for _, proto := range protos {
+		sel := proto.NewInstance()
+		v, err := sel.SelectValue(m)
+		if err != nil {
+			// Explicitly log non-match vs other evaluation errors
+			if errors.Is(err, selector.ErrNotMatched) {
+				slog.Info("selector not matched", "name", sel.Name(), "type", sel.Type())
+			} else {
+				slog.Error("selector evaluation failed", "name", sel.Name(), "type", sel.Type(), "error", err)
+			}
+			return nil, fmt.Errorf("selector '%s' did not apply: %w", sel.Name(), err)
+		}
+		// Matched
+		slog.Info("selector matched", "name", sel.Name(), "type", sel.Type())
+
+		if collectValues {
+			result[sel.Name()] = v
+		}
+	}
+
+	return result, nil
+}
+
 func filterMailsBySelectors(mails []mail.Mail, protos []selector.SelectorPrototype) []mail.Mail {
 	result := make([]mail.Mail, 0)
 
@@ -254,15 +284,7 @@ func filterMailsBySelectors(mails []mail.Mail, protos []selector.SelectorPrototy
 	}
 
 	for _, m := range mails {
-		inScope := true
-		for _, proto := range protos {
-			sel := proto.NewInstance()
-			if _, err := sel.SelectValue(m); err != nil {
-				inScope = false
-				break
-			}
-		}
-		if inScope {
+		if _, err := evaluateSelectorsCore(m, protos, false); err == nil {
 			result = append(result, m)
 		}
 	}
@@ -276,16 +298,7 @@ func buildSelectorPrototypes(config *config.Config) ([]selector.SelectorPrototyp
 
 // evaluateSelectorsStrict ensures every selector applies; returns error if any selector doesn't match.
 func evaluateSelectorsStrict(m mail.Mail, allProtos []selector.SelectorPrototype) (map[string]string, error) {
-	result := map[string]string{}
-	for _, proto := range allProtos {
-		sel := proto.NewInstance()
-		v, err := sel.SelectValue(m)
-		if err != nil {
-			return nil, fmt.Errorf("selector '%s' did not apply: %w", sel.Name(), err)
-		}
-		result[sel.Name()] = v
-	}
-	return result, nil
+	return evaluateSelectorsCore(m, allProtos, true)
 }
 
 // ioNopCloser wraps a Reader to satisfy io.ReadCloser without allocating a full NopCloser dependency.
