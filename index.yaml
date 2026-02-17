@@ -3,6 +3,24 @@ entries:
   go-mail-webhook-service:
   - apiVersion: v2
     appVersion: 2.2.1
+    created: "2026-02-17T19:01:29.51762433Z"
+    description: A Helm chart for deploying go-mail-webhook-service (polls mail and
+      triggers webhooks)
+    digest: fd93589ed7227c0cc095badafd108fe557bffa43171d93b3c1ccffdc8e9df21b
+    home: https://github.com/jo-hoe/go-mail-webhook-service
+    keywords:
+    - mail
+    - webhook
+    - kubernetes
+    name: go-mail-webhook-service
+    sources:
+    - https://github.com/jo-hoe/go-mail-webhook-service
+    type: application
+    urls:
+    - https://github.com/jo-hoe/go-mail-webhook-service/releases/download/go-mail-webhook-service-3.0.2/go-mail-webhook-service-3.0.2.tgz
+    version: 3.0.2
+  - apiVersion: v2
+    appVersion: 2.2.1
     created: "2026-02-17T18:24:40.632280493Z"
     description: A Helm chart for deploying go-mail-webhook-service (polls mail and
       triggers webhooks)
@@ -55,4 +73,4 @@ entries:
     urls:
     - https://github.com/jo-hoe/go-mail-webhook-service/releases/download/go-mail-webhook-service-2.2.0/go-mail-webhook-service-2.2.0.tgz
     version: 2.2.0
-generated: "2026-02-17T18:24:40.632303476Z"
+generated: "2026-02-17T19:01:29.517640972Z"
