@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"mime/multipart"
 	"net/http"
@@ -25,6 +26,11 @@ const (
 
 type WebhookService struct {
 	config *config.Config
+}
+
+type selectedMail struct {
+	Mail     mail.Mail
+	Selected map[string]string
 }
 
 func NewWebhookService(cfg *config.Config) *WebhookService {
@@ -48,11 +54,13 @@ func processWebhook(config *config.Config) {
 	mailService, err := mail.NewMailClientService(clientType)
 	if err != nil {
 		slog.Error("could not create mail service", "error", err)
+		return
 	}
 
 	client, err := createHttpClient(config)
 	if err != nil {
 		slog.Error("could not create http client", "error", err)
+		return
 	}
 
 	processMails(context.Background(), client, config, mailService)
@@ -85,44 +93,48 @@ func processMails(ctx context.Context, client *http.Client, config *config.Confi
 		slog.Error("could not build selector prototypes", "error", err)
 		return
 	}
+	if len(allProtos) == 0 {
+		slog.Warn("no selectors configured; no mails will be processed")
+	}
 
 	filteredMails := filterMailsBySelectors(allMails, allProtos)
 	slog.Info(fmt.Sprintf("number of unread mails matching all selectors is: %d", len(filteredMails)))
 
 	var wg sync.WaitGroup
-	for _, m := range filteredMails {
+	for _, sm := range filteredMails {
 		wg.Add(1)
-		go processMail(ctx, client, mailService, m, config, allProtos, &wg)
+		go processMail(ctx, client, mailService, sm.Mail, config, sm.Selected, &wg)
 	}
 	wg.Wait()
 }
 
 func processMail(ctx context.Context, client *http.Client, mailService mail.MailClientService,
-	m mail.Mail, config *config.Config, allProtos []selector.SelectorPrototype, wg *sync.WaitGroup) {
+	m mail.Mail, config *config.Config, selected map[string]string, wg *sync.WaitGroup) {
 	defer wg.Done()
-
-	request, err := constructRequest(m, config, allProtos)
-	if err != nil {
-		slog.Error("could not create request", "error", err)
-		return
-	}
 
 	var lastErr error
 	for attempts := 0; attempts < config.Callback.Retries+1; attempts++ {
-		lastErr = sendRequest(request, client)
+		// Reconstruct request for each attempt so the body reader is fresh
+		request, err := constructRequest(m, config, selected)
+		if err != nil {
+			slog.Error("could not create request", "mailId", m.Id, "error", err)
+			return
+		}
+
+		lastErr = sendRequest(request, client, m.Id)
 		if lastErr == nil {
 			// Success: mark as read and log success
 			if err := mailService.MarkMailAsRead(ctx, m); err != nil {
 				slog.Error("could not mark mails as read", "error", err, "mailId", m.Id)
 			}
-			slog.Info("successfully processed mail", "subject", m.Subject, "body_prefix", getPrefix(m.Body, 100))
+			slog.Info("successfully processed mail", "mailId", m.Id, "subject", m.Subject, "body_prefix", getPrefix(m.Body, 100))
 			return
 		}
-		slog.Error("could not send request", "attempt", attempts+1, "max_attempts", config.Callback.Retries+1, "error", lastErr)
+		slog.Error("could not send request", "mailId", m.Id, "attempt", attempts+1, "max_attempts", config.Callback.Retries+1, "error", lastErr)
 	}
 
 	// Exhausted retries: do not mark as read
-	slog.Warn("exhausted retries for mail; leaving unread", "subject", m.Subject)
+	slog.Warn("exhausted retries for mail; leaving unread", "mailId", m.Id, "subject", m.Subject)
 }
 
 func getPrefix(input string, prefixLength int) string {
@@ -132,28 +144,28 @@ func getPrefix(input string, prefixLength int) string {
 	return input
 }
 
-func sendRequest(request *http.Request, client *http.Client) error {
+func sendRequest(request *http.Request, client *http.Client, mailId string) error {
 	resp, err := client.Do(request)
 	if err != nil {
 		return err
 	}
+	// Ensure response body is closed to avoid resource leaks and enable connection reuse
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			slog.Warn("failed to close response body", "mailId", mailId, "error", cerr)
+		}
+	}()
 
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("status: %d - %s for request: %s - %s", resp.StatusCode, resp.Status, request.Method, request.URL.String())
 	} else {
-		slog.Info("request success", "status_code", resp.StatusCode, "method", request.Method, "url", request.URL.String())
+		slog.Info("request success", "mailId", mailId, "status_code", resp.StatusCode, "method", request.Method, "url", request.URL.String())
 	}
 
 	return nil
 }
 
-func constructRequest(m mail.Mail, cfg *config.Config, allProtos []selector.SelectorPrototype) (request *http.Request, err error) {
-	// Evaluate all selectors to build placeholder map; require all to apply
-	selected, err := evaluateSelectorsStrict(m, allProtos)
-	if err != nil {
-		return nil, err
-	}
-
+func constructRequest(m mail.Mail, cfg *config.Config, selected map[string]string) (request *http.Request, err error) {
 	// Start with a base request without body; we'll attach body/headers/query per sections
 	request, err = http.NewRequest(cfg.Callback.Method, cfg.Callback.Url, nil)
 	if err != nil {
@@ -227,7 +239,7 @@ func constructRequest(m mail.Mail, cfg *config.Config, allProtos []selector.Sele
 		if err := w.Close(); err != nil {
 			return nil, err
 		}
-		request.Body = ioNopCloser(bytes.NewReader(body.Bytes()))
+		request.Body = io.NopCloser(bytes.NewReader(body.Bytes()))
 		request.ContentLength = int64(body.Len())
 		// Set Content-Type with boundary if not already provided
 		if request.Header.Get("Content-Type") == "" {
@@ -240,7 +252,7 @@ func constructRequest(m mail.Mail, cfg *config.Config, allProtos []selector.Sele
 	if cfg.Callback.Body != "" {
 		bodyStr := callbackField.ExpandPlaceholders(cfg.Callback.Body, selected)
 		bodyBytes := []byte(bodyStr)
-		request.Body = ioNopCloser(bytes.NewReader(bodyBytes))
+		request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 		request.ContentLength = int64(len(bodyBytes))
 		// Do not set Content-Type automatically for raw body; user can supply via headers
 	}
@@ -260,14 +272,14 @@ func evaluateSelectorsCore(m mail.Mail, protos []selector.SelectorPrototype, col
 		if err != nil {
 			// Explicitly log non-match vs other evaluation errors
 			if errors.Is(err, selector.ErrNotMatched) {
-				slog.Info("selector not matched", "name", sel.Name(), "type", sel.Type())
+				slog.Info("selector not matched", "name", sel.Name(), "type", sel.Type(), "mailId", m.Id)
 			} else {
-				slog.Error("selector evaluation failed", "name", sel.Name(), "type", sel.Type(), "error", err)
+				slog.Error("selector evaluation failed", "name", sel.Name(), "type", sel.Type(), "mailId", m.Id, "error", err)
 			}
 			return nil, fmt.Errorf("selector '%s' did not apply: %w", sel.Name(), err)
 		}
 		// Matched
-		slog.Info("selector matched", "name", sel.Name(), "type", sel.Type())
+		slog.Info("selector matched", "name", sel.Name(), "type", sel.Type(), "mailId", m.Id)
 
 		if collectValues {
 			result[sel.Name()] = v
@@ -277,8 +289,8 @@ func evaluateSelectorsCore(m mail.Mail, protos []selector.SelectorPrototype, col
 	return result, nil
 }
 
-func filterMailsBySelectors(mails []mail.Mail, protos []selector.SelectorPrototype) []mail.Mail {
-	result := make([]mail.Mail, 0)
+func filterMailsBySelectors(mails []mail.Mail, protos []selector.SelectorPrototype) []selectedMail {
+	result := make([]selectedMail, 0)
 
 	// If no selectors defined, process nothing by default
 	if len(protos) == 0 {
@@ -286,8 +298,8 @@ func filterMailsBySelectors(mails []mail.Mail, protos []selector.SelectorPrototy
 	}
 
 	for _, m := range mails {
-		if _, err := evaluateSelectorsCore(m, protos, false); err == nil {
-			result = append(result, m)
+		if selected, err := evaluateSelectorsCore(m, protos, true); err == nil {
+			result = append(result, selectedMail{Mail: m, Selected: selected})
 		}
 	}
 
@@ -296,18 +308,4 @@ func filterMailsBySelectors(mails []mail.Mail, protos []selector.SelectorPrototy
 
 func buildSelectorPrototypes(config *config.Config) ([]selector.SelectorPrototype, error) {
 	return selector.NewSelectorPrototypes(config.MailSelectors)
-}
-
-// evaluateSelectorsStrict ensures every selector applies; returns error if any selector doesn't match.
-func evaluateSelectorsStrict(m mail.Mail, allProtos []selector.SelectorPrototype) (map[string]string, error) {
-	return evaluateSelectorsCore(m, allProtos, true)
-}
-
-// ioNopCloser wraps a Reader to satisfy io.ReadCloser without allocating a full NopCloser dependency.
-type nopCloser struct{ *bytes.Reader }
-
-func (nc nopCloser) Close() error { return nil }
-
-func ioNopCloser(r *bytes.Reader) nopCloser {
-	return nopCloser{r}
 }

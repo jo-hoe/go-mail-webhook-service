@@ -18,6 +18,7 @@ import (
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
+
 func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
 func Test_filterMailsBySelectors(t *testing.T) {
@@ -60,14 +61,17 @@ func Test_filterMailsBySelectors(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := filterMailsBySelectors(tt.args.mails, tt.args.protos); !reflect.DeepEqual(got, tt.want) {
+			gotSelected := filterMailsBySelectors(tt.args.mails, tt.args.protos)
+			got := make([]mail.Mail, len(gotSelected))
+			for i, sm := range gotSelected {
+				got[i] = sm.Mail
+			}
+			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("filterMailsBySelectors() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
-
-
 
 func Test_constructRequest(t *testing.T) {
 	testMethod := "POST"
@@ -75,9 +79,9 @@ func Test_constructRequest(t *testing.T) {
 	testBody := []byte("{\"testKey\":\"testValue\"}")
 
 	type args struct {
-		mail           mail.Mail
-		config         *config.Config
-		nonScopeProtos []selector.SelectorPrototype
+		mail   mail.Mail
+		config *config.Config
+		protos []selector.SelectorPrototype
 	}
 	tests := []struct {
 		name         string
@@ -101,7 +105,7 @@ func Test_constructRequest(t *testing.T) {
 						Method: testMethod,
 					},
 				},
-				nonScopeProtos: []selector.SelectorPrototype{},
+				protos: []selector.SelectorPrototype{},
 			},
 			wantMethod:   testMethod,
 			wantURL:      testUrl,
@@ -125,7 +129,7 @@ func Test_constructRequest(t *testing.T) {
 						Body: "{\"testKey\":\"${testKey}\"}",
 					},
 				},
-				nonScopeProtos: mustPrototypes(t, []config.MailSelectorConfig{
+				protos: mustPrototypes(t, []config.MailSelectorConfig{
 					{
 						Name:    "testKey",
 						Type:    "bodyRegex",
@@ -142,7 +146,13 @@ func Test_constructRequest(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := constructRequest(tt.args.mail, tt.args.config, tt.args.nonScopeProtos)
+			var selected map[string]string
+			if len(tt.args.protos) > 0 {
+				selected, _ = evaluateSelectorsCore(tt.args.mail, tt.args.protos, true)
+			} else {
+				selected = map[string]string{}
+			}
+			got, err := constructRequest(tt.args.mail, tt.args.config, selected)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("constructRequest() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -272,9 +282,12 @@ func Test_processMail(t *testing.T) {
 	}
 	for _, tt := range tests {
 		var wg sync.WaitGroup
-		wg.Add(1)
-		processMail(tt.args.ctx, tt.args.client, tt.args.mailService, tt.args.mail, tt.args.config, allProtos, &wg)
-		wg.Wait()
+		selected, err := evaluateSelectorsCore(tt.args.mail, allProtos, true)
+		if err == nil {
+			wg.Add(1)
+			processMail(tt.args.ctx, tt.args.client, tt.args.mailService, tt.args.mail, tt.args.config, selected, &wg)
+			wg.Wait()
+		}
 		bufferString := logBuffer.String()
 		if tt.args.wantSuccessLog && !strings.Contains(bufferString, "successfully processed mail") {
 			t.Errorf("Did not find expected log, log was'%s'", bufferString)
