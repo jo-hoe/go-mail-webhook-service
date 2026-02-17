@@ -286,7 +286,13 @@ func (s *tokenSavingSource) Token() (*oauth2.Token, error) {
 	// Persist the full token JSON (including refresh_token) to file
 	file, err := os.OpenFile(s.path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
-		slog.Error("failed to open token file for writing", "path", s.path, "error", err)
+		// In Kubernetes, Secrets are mounted read-only. Persisting the refreshed token will fail with a read-only FS.
+		// Demote read-only or permission-related failures to warning to avoid noisy errors in such environments.
+		if strings.Contains(strings.ToLower(err.Error()), "read-only file system") || os.IsPermission(err) {
+			slog.Warn("token not persisted (destination is read-only or permission denied)", "path", s.path, "error", err)
+		} else {
+			slog.Error("failed to open token file for writing", "path", s.path, "error", err)
+		}
 		return t, nil // return token even if persisting failed
 	}
 	defer func() {
