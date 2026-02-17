@@ -77,6 +77,8 @@ func processMails(ctx context.Context, client *http.Client, config *config.Confi
 		slog.Error("error while reading all mails", "error", err)
 		return
 	}
+	// Log the total count of unread mails before applying any selectors
+	slog.Info(fmt.Sprintf("number of unread mails is: %d", len(allMails)))
 
 	allProtos, err := buildSelectorPrototypes(config)
 	if err != nil {
