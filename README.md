@@ -83,6 +83,7 @@ callback:
 ```
 
 Notes:
+
 - headers keys allow alphanumeric and hyphens.
 - queryParams and form keys must be alphanumeric only.
 - body is a raw string; set Content-Type via headers when needed (e.g., application/json).
