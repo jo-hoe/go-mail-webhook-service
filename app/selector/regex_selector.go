@@ -12,7 +12,6 @@ import (
 type RegexSelectorPrototype struct {
 	name         string
 	selType      string // "subjectRegex" | "bodyRegex" | "senderRegex" | "recipientRegex"
-	scope        bool
 	captureGroup int
 	re           *regexp.Regexp
 	getValues    func(mail.Mail) []string

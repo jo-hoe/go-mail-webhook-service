@@ -33,7 +33,6 @@ func NewSelectorPrototypes(cfgs []config.MailSelectorConfig) ([]SelectorPrototyp
 			prototypes = append(prototypes, &RegexSelectorPrototype{
 				name:         c.Name,
 				selType:      c.Type,
-				scope:        c.Scope,
 				captureGroup: c.CaptureGroup,
 				re:           re,
 				getValues:    getValues,
@@ -46,7 +45,6 @@ func NewSelectorPrototypes(cfgs []config.MailSelectorConfig) ([]SelectorPrototyp
 			prototypes = append(prototypes, &AttachmentNameRegexSelectorPrototype{
 				name:  c.Name,
 				re:    re,
-				scope: c.Scope,
 			})
 		default:
 			return nil, fmt.Errorf("unsupported selector type '%s' for selector '%s'", c.Type, c.Name)

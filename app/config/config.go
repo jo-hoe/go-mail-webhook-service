@@ -70,7 +70,6 @@ type MailSelectorConfig struct {
 	Type         string `yaml:"type"`         // "subjectRegex" | "bodyRegex" | "attachmentNameRegex" | "senderRegex" | "recipientRegex"
 	Pattern      string `yaml:"pattern"`      // regex pattern
 	CaptureGroup int    `yaml:"captureGroup"` // default 0 (full match)
-	Scope        bool   `yaml:"scope"`        // default false
 }
 
 type Callback struct {
@@ -111,7 +110,7 @@ func setDefaults(config *Config) {
 	if strings.TrimSpace(config.LogLevel) == "" {
 		config.LogLevel = "info"
 	}
-	// CaptureGroup and Scope default via zero-values; nothing to set here
+	// CaptureGroup defaults via zero-values; nothing to set here
 }
 
 

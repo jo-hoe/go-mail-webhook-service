@@ -20,7 +20,6 @@ func TestRecipientRegexSelector_MatchFirstRecipient(t *testing.T) {
 			Type:         "recipientRegex",
 			Pattern:      "^sales@example.com$",
 			CaptureGroup: 0,
-			Scope:        true,
 		},
 	})
 	if err != nil {
@@ -57,7 +56,6 @@ func TestRecipientRegexSelector_NoMatch(t *testing.T) {
 			Type:         "recipientRegex",
 			Pattern:      "^nobody@example.com$",
 			CaptureGroup: 0,
-			Scope:        true,
 		},
 	})
 	if err != nil {

@@ -26,7 +26,6 @@ mailSelectors:
 - name: "subjectScope"
   type: "subjectRegex"
   pattern: ".*"
-  scope: true
 - name: "test"
   type: "bodyRegex"
   pattern: "[a-z]{0,6}"
@@ -51,21 +50,18 @@ callback:
 						Type:         "subjectRegex",
 						Pattern:      ".*",
 						CaptureGroup: 0,
-						Scope:        true,
 					},
 					{
 						Name:         "test",
 						Type:         "bodyRegex",
 						Pattern:      "[a-z]{0,6}",
 						CaptureGroup: 0,
-						Scope:        false,
 					},
 					{
 						Name:         "test2",
 						Type:         "bodyRegex",
 						Pattern:      ".*",
 						CaptureGroup: 0,
-						Scope:        false,
 					},
 				},
 				Callback: Callback{
@@ -97,7 +93,6 @@ mailSelectors:
 - name: "subjectScope"
   type: "subjectRegex"
   pattern: ".*"
-  scope: true
 callback:
   url: "https://example.com/callback"
   method: "POST"`),
@@ -114,7 +109,6 @@ callback:
 						Type:         "subjectRegex",
 						Pattern:      ".*",
 						CaptureGroup: 0,
-						Scope:        true,
 					},
 				},
 				Callback: Callback{
@@ -139,7 +133,6 @@ mailSelectors:
 - name: "subjectScope"
   type: "subjectRegex"
   pattern: ".*"
-  scope: true
 callback:
   url: "https://example.com/callback"
   method: "invalid"`),

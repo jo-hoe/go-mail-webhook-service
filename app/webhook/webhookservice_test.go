@@ -42,7 +42,6 @@ func Test_filterMailsBySelectors(t *testing.T) {
 						Name:    "subjectScope",
 						Type:    "subjectRegex",
 						Pattern: "^includethis$",
-						Scope:   true,
 					},
 				}),
 			},
@@ -132,7 +131,6 @@ func Test_constructRequest(t *testing.T) {
 						Name:    "testKey",
 						Type:    "bodyRegex",
 						Pattern: "testValue",
-						Scope:   false,
 					},
 				}),
 			},
@@ -193,13 +191,11 @@ func Test_processMail(t *testing.T) {
 				Name:    "subjectScope",
 				Type:    "subjectRegex",
 				Pattern: "testSubject",
-				Scope:   true,
 			},
 			{
 				Name:    "testKey",
 				Type:    "bodyRegex",
 				Pattern: "testValue",
-				Scope:   false,
 			},
 		},
 	})
@@ -325,13 +321,11 @@ func Test_processMails(t *testing.T) {
 							Name:    "subjectScope",
 							Type:    "subjectRegex",
 							Pattern: "testSubject",
-							Scope:   true,
 						},
 						{
 							Name:    "testKey",
 							Type:    "bodyRegex",
 							Pattern: "testValue",
-							Scope:   false,
 						},
 					},
 					Callback: config.Callback{
@@ -351,7 +345,7 @@ func Test_processMails(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
-		expectedLog := fmt.Sprintf("number of unread mails that are in scope is: %d", len(numberOfUnreadMails))
+		expectedLog := fmt.Sprintf("number of unread mails matching all selectors is: %d", len(numberOfUnreadMails))
 		if !strings.Contains(bufferString, expectedLog) {
 			t.Errorf("Did not find expected log '%s'", expectedLog)
 		}
@@ -415,4 +409,3 @@ func mustPrototypes(t *testing.T, cfgs []config.MailSelectorConfig) []selector.S
 	}
 	return all
 }
-

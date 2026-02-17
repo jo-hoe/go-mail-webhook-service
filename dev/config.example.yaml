@@ -4,7 +4,7 @@
 #
 # Notes:
 # - The top-level structure is a single YAML object (one configuration).
-# - Supported selector types: "subjectRegex", "bodyRegex", "attachmentNameRegex", "senderRegex"
+# - Supported selector types: "subjectRegex", "bodyRegex", "attachmentNameRegex", "senderRegex", "recipientRegex"
 # - Supported HTTP methods: GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS, TRACE
 #
 # Placeholders:
@@ -17,6 +17,9 @@
 # - callback.form: list of {key, value} (multipart/form-data) where key is alphanumeric only
 # - callback.attachments: configuration for forwarding email attachments (multipart file parts)
 # - callback.body: raw string body; you can build JSON or any text yourself and include placeholders
+#
+# Selector behavior:
+# - All selectors provided must match for an email to be processed. If any selector fails to match, the email is skipped.
 
 # Comprehensive configuration demonstrating selectors and structured callback sections
 logLevel: "info"
@@ -34,28 +37,24 @@ mailSelectors:
     type: "subjectRegex"
     pattern: "Order ([0-9]+) confirmed"
     captureGroup: 1
-    scope: true   # true means this selector must match for the mail to be in scope
 
   # Extract amount value from the email body
   - name: "Amount"
     type: "bodyRegex"
     pattern: "Total: \\$([0-9]+\\.[0-9]{2})"
     captureGroup: 1
-    scope: false
 
   # Extract sender email address domain (e.g., captures "example.com" from "user@example.com")
   - name: "SenderDomain"
     type: "senderRegex"
     pattern: "@([^@]+)$"
     captureGroup: 1
-    scope: false
 
   # Extract a number from an attachment file name like 'invoice-12345.pdf'
   - name: "FileNum"
     type: "attachmentNameRegex"
     pattern: "invoice-([0-9]+)\\.pdf"
     captureGroup: 1
-    scope: false
 
 callback:
   # The webhook endpoint to call with extracted values
@@ -93,7 +92,7 @@ callback:
   attachments:
     enabled: false
     fieldPrefix: "attachment"      # Parts will be named like "attachment_0", "attachment_1", ...
-    maxSize: 0                     # 0 or negative means no per-attachment size limit
+    maxSize: "0"                   # "0" or empty means no per-attachment size limit
 
   # Raw body: build JSON yourself using placeholders if needed
   # Note: Raw body is only used when not sending multipart/form-data (i.e., no form fields and no attachments).
@@ -115,7 +114,6 @@ callback:
 #     type: "bodyRegex"
 #     pattern: "https?://(www\\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}([-a-zA-Z0-9()@:%_+.~#?&/=]*)"
 #     captureGroup: 0   # 0 means use the entire match
-#     scope: false
 #
 # callback:
 #   url: "https://api.example.com/collect"

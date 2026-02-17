@@ -11,7 +11,6 @@ import (
 type AttachmentNameRegexSelectorPrototype struct {
 	name  string
 	re    *regexp.Regexp
-	scope bool
 }
 
 type AttachmentNameRegexSelector struct {

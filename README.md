@@ -51,12 +51,10 @@ mailSelectors:
     type: "subjectRegex"
     pattern: "Order ([0-9]+) confirmed"
     captureGroup: 1
-    scope: true
   - name: "Amount"
     type: "bodyRegex"
     pattern: "Total: \\$([0-9]+\\.[0-9]{2})"
     captureGroup: 1
-    scope: false
 
 callback:
   url: "https://example.com/callback"
