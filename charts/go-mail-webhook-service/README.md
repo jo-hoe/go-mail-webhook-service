@@ -25,7 +25,7 @@ A Helm chart for deploying go-mail-webhook-service (polls mail and triggers webh
 | fullnameOverride | string | `""` |  |
 | image.pullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"ghcr.io/jo-hoe/go-mail-webhook-service"` |  |
-| image.tag | string | `"0.1.0"` |  |
+| image.tag | string | `""` | If empty, defaults to Chart.AppVersion |
 | imagePullSecrets | list | `[]` | Optional imagePullSecrets |
 | job | object | `{"backoffLimit":2,"executeOnStartUp":true,"failedJobsHistoryLimit":1,"restartPolicy":"Never","schedule":"0 * * * *","successfulJobsHistoryLimit":1,"ttlSecondsAfterFinished":86400}` | Job configuration |
 | job.backoffLimit | int | `2` | number of attempts for failed jobs before marking as failed (includes initial attempt, so 6 = 1 attempt + 5 retries) |

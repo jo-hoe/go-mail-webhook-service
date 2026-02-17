@@ -4,7 +4,8 @@
 
 image:
   repository: ghcr.io/jo-hoe/go-mail-webhook-service
-  tag: 0.1.0
+  tag: ""
+  # If empty, the image tag defaults to Chart.AppVersion
   pullPolicy: IfNotPresent
 
 # -- Optional imagePullSecrets
@@ -85,16 +86,17 @@ mailClientCredentials:
 # -- Application configuration (rendered into /go/config/config.yaml)
 logLevel: "info"
 # Provide empty defaults so templates resolve keys; override in your values when deploying
+# mailClientConfig:
+#   mail: "example@gmail.com"
+#   # Set credentialsPath to the directory where the Secret is mounted
+#   credentialsPath: "/secrets/mail"
 mailClientConfig: {}
 mailSelectors: []
 callback: {}
 
 # Example:
 # logLevel: "info"
-# mailClientConfig:
-#   mail: "example@gmail.com"
-#   # Set credentialsPath to the directory where the Secret is mounted
-#   credentialsPath: "/secrets/mail"
+
 # mailSelectors:
 #   - name: "OrderId"
 #     type: "subjectRegex"
