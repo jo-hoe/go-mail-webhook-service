@@ -3,16 +3,16 @@
 2. Configuration
    The application reads its configuration from:
      /go/config/config.yaml
-   This file is rendered from the chart values:
-     .Values.config (object)
+   This file is rendered from top-level chart values:
+     logLevel, mailClientConfig, mailSelectors, callback
    Edit your values and upgrade:
      helm upgrade {{ .Release.Name }} {{ .Chart.Name }} -f your-values.yaml
 
 3. Execution Modes
    - Job:
-     If .Values.job.enabled = true, a Helm hook Job will run after install/upgrade.
+     If .Values.job.executeOnStartUp = true, a Helm hook Job will run after install/upgrade and when the ConfigMap changes.
    - CronJob:
-     If .Values.cronjob.enabled = true, a CronJob will run on the configured schedule.
+     If .Values.job.schedule is set (non-empty), a CronJob will run on the configured schedule.
 
 4. Image configuration
    You can override the image used by setting:

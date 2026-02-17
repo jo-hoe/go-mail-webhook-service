@@ -6,4 +6,9 @@ metadata:
     {{- include "go-mail-webhook-service.labels" . | nindent 4 }}
 data:
   config.yaml: |-
-    {{- toYaml .Values.config | nindent 4 }}
+    {{- $cfg := dict -}}
+    {{- $_ := set $cfg "logLevel" .Values.logLevel -}}
+    {{- $_ := set $cfg "mailClientConfig" .Values.mailClientConfig -}}
+    {{- $_ := set $cfg "mailSelectors" .Values.mailSelectors -}}
+    {{- $_ := set $cfg "callback" .Values.callback -}}
+    {{- toYaml $cfg | nindent 4 }}

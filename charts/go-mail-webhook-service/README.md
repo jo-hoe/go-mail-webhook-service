@@ -15,7 +15,10 @@ A Helm chart for deploying go-mail-webhook-service (polls mail and triggers webh
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` |  |
-| config | object | `{"logLevel":"info"}` | The core application configuration. This renders verbatim into config/config.yaml (single object). Adjust credentialsPath to match how you mount secrets into the Pod. |
+| callback | object | `{}` | Application callback configuration rendered into /go/config/config.yaml |
+| logLevel | string | `"info"` | Application log level rendered into /go/config/config.yaml |
+| mailClientConfig | object | `{}` | Mail client configuration rendered into /go/config/config.yaml |
+| mailSelectors | list | `[]` | Selector definitions rendered into /go/config/config.yaml |
 | env | list | `[]` | Environment variables for the container |
 | extraVolumeMounts | list | `[]` |  |
 | extraVolumes | list | `[]` |  |
