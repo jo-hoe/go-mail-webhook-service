@@ -37,7 +37,9 @@ callback:
 		want: &Config{
 			LogLevel: "info",
 			MailClient: MailClient{
-				Type: "gmail",
+				Gmail: GmailClient{
+					Enabled: true,
+				},
 			},
 			MailSelectors: []MailSelectorConfig{
 				{
@@ -92,7 +94,9 @@ callback:
 		want: &Config{
 			LogLevel: "info",
 			MailClient: MailClient{
-				Type: "gmail",
+				Gmail: GmailClient{
+					Enabled: true,
+				},
 			},
 			MailSelectors: []MailSelectorConfig{
 				{
