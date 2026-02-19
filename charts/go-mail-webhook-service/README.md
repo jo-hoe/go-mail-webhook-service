@@ -41,7 +41,7 @@ A Helm chart for deploying go-mail-webhook-service (polls mail and triggers webh
 | nodeSelector | object | `{}` |  |
 | podAnnotations | object | `{}` |  |
 | podSecurityContext | object | `{}` |  |
-| processing.processedAction | string | `"markRead"` |  |
+| processing.processedAction | string | `"markRead"` | Processed action defines how to mark mails after successful processing. Supported values: "markRead" (default) or "delete" |
 | resources | object | `{}` |  |
 | securityContext | object | `{}` |  |
 | serviceAccount.create | bool | `true` |  |
