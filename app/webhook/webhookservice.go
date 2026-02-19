@@ -123,9 +123,14 @@ func processMail(ctx context.Context, client *http.Client, mailService mail.Mail
 
 		lastErr = sendRequest(request, client, m.Id)
 		if lastErr == nil {
-			// Success: mark as read and log success
-			if err := mailService.MarkMailAsRead(ctx, m); err != nil {
-				slog.Error("could not mark mails as read", "error", err, "mailId", m.Id)
+			// Success: apply processed action and log success
+			action, aErr := mail.NewProcessedAction(config.Processing.ProcessedAction)
+			if aErr != nil {
+				slog.Error("invalid processed action; falling back to markRead", "configured", config.Processing.ProcessedAction, "error", aErr)
+				action, _ = mail.NewProcessedAction("markRead")
+			}
+			if err := action.Apply(ctx, mailService, m); err != nil {
+				slog.Error("could not apply processed action", "action", action.Name(), "error", err, "mailId", m.Id)
 			}
 			slog.Info("successfully processed mail", "mailId", m.Id, "subject", m.Subject, "body_prefix", getPrefix(m.Body, 100))
 			return

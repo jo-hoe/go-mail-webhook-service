@@ -103,6 +103,25 @@ func (service *GmailService) MarkMailAsRead(context context.Context, mail Mail) 
 	return nil
 }
 
+func (service *GmailService) DeleteMail(context context.Context, mail Mail) error {
+	gmailService, err := service.getGmailService(context, gmail.GmailModifyScope)
+	if err != nil {
+		return err
+	}
+
+	// Permanently delete the message
+	err = gmailService.Users.Messages.Delete("me", mail.Id).Do()
+	if err != nil {
+		var gErr *googleapi.Error
+		if errors.As(err, &gErr) && (gErr.Code == 401 || gErr.Code == 403) {
+			return fmt.Errorf("gmail API returned %d unauthorized/forbidden while deleting message %s. The OAuth token at %s may be invalid, expired, or revoked. Re-generate the token using the CLI (cli/gmail) and ensure it is mounted at the configured credentialsPath. Original error: %v", gErr.Code, mail.Id, path.Join(service.credentialsPath, TokenFileName), err)
+		}
+		return fmt.Errorf("unable to delete message %s: %v", mail.Id, err)
+	}
+
+	return nil
+}
+
 func extractSubject(headers []*gmail.MessagePartHeader) string {
 	for _, header := range headers {
 		if header.Name == "Subject" {

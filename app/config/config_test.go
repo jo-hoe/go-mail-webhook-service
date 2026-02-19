@@ -70,6 +70,9 @@ callback:
 					FieldPrefix: "attachment",
 				},
 			},
+			Processing: Processing{
+				ProcessedAction: "markRead",
+			},
 		},
 		wantErr: false,
 	}, {
@@ -114,6 +117,9 @@ callback:
 				Attachments: AttachmentsConfig{
 					FieldPrefix: "attachment",
 				},
+			},
+			Processing: Processing{
+				ProcessedAction: "markRead",
 			},
 		},
 		wantErr: false,

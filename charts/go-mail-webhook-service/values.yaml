@@ -120,3 +120,7 @@ mailSelectors: []
 #     }
 
 callback: {}
+processing:
+  # Processed action defines how to mark mails after successful processing.
+  # Supported values: "markRead" (default) or "delete"
+  processedAction: "markRead"

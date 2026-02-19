@@ -9,6 +9,7 @@ import (
 type MailClientService interface {
 	GetAllUnreadMail(context context.Context) ([]Mail, error)
 	MarkMailAsRead(context context.Context, mail Mail) error
+	DeleteMail(context context.Context, mail Mail) error
 }
 
 type Attachment struct {

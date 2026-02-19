@@ -16,14 +16,19 @@
 # - callback.queryParams: list of {key, value} where key is alphanumeric only
 # - callback.form: list of {key, value} (multipart/form-data) where key is alphanumeric only
 # - callback.attachments: configuration for forwarding email attachments (multipart file parts)
-# - callback.body: raw string body; you can build JSON or any text yourself and include placeholders
+# - callback.body: raw string body; you can build JSON yourself if desired
+#
+# Processing behavior:
+# - processing.processedAction controls how an email is marked as processed after a successful webhook call.
+#   Supported values:
+#     - "markRead" (default): mark the email as read
+#     - "delete": delete the email after successful processing (irreversible in Gmail)
 #
 # Selector behavior:
 # - All selectors provided must match for an email to be processed. If any selector fails to match, the email is skipped.
 
 # Comprehensive configuration demonstrating selectors and structured callback sections
 logLevel: "info"
-
 
 mailSelectors:
   # Extract numeric Order ID from the email subject
@@ -53,7 +58,7 @@ mailSelectors:
 callback:
   # The webhook endpoint to call with extracted values
   # here we use host.docker.internal to access a service running on the host machine from inside the Docker container; adjust as needed for your environment
-  url: "http://host.docker.internal:8080/api" 
+  url: "http://host.docker.internal:8080/api"
   # HTTP method must be one of: GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS, TRACE
   method: "POST"
   # Request timeout (Go duration format). Default is "24s" if omitted.
@@ -95,6 +100,11 @@ callback:
       "amount": "${Amount}",
       "senderDomain": "${SenderDomain}"
     }
+
+# Processing behavior: choose how to mark mails after successful processing
+processing:
+  # Supported values: "markRead" (default) or "delete"
+  processedAction: "markRead"
 
 # Minimal configuration (GET with query param)
 # Uncomment below to use a minimal example instead of the comprehensive one

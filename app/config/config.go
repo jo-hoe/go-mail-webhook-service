@@ -58,6 +58,7 @@ type Config struct {
 	MailSelectors []MailSelectorConfig `yaml:"mailSelectors"`
 	Callback      Callback             `yaml:"callback"`
 	LogLevel      string               `yaml:"logLevel"` // logging level: "debug" | "info" | "warn" | "error"
+	Processing    Processing           `yaml:"processing"`
 }
 
 type MailSelectorConfig struct {
@@ -73,6 +74,14 @@ type GmailClient struct {
 
 type MailClient struct {
 	Gmail GmailClient `yaml:"gmail"`
+}
+
+type Processing struct {
+	// ProcessedAction controls how a mail is marked as processed after a successful webhook call.
+	// Supported values:
+	// - "markRead" (default): remove UNREAD label
+	// - "delete": delete the mail using the mail client (be aware this is permanent for Gmail)
+	ProcessedAction string `yaml:"processedAction"`
 }
 
 type Callback struct {
@@ -117,6 +126,10 @@ func setDefaults(config *Config) {
 	if !config.MailClient.Gmail.Enabled {
 		config.MailClient.Gmail.Enabled = true
 	}
+	// Default processing action
+	if strings.TrimSpace(config.Processing.ProcessedAction) == "" {
+		config.Processing.ProcessedAction = "markRead"
+	}
 	// CaptureGroup defaults via zero-values; nothing to set here
 }
 
@@ -145,6 +158,18 @@ func validateConfig(config *Config) error {
 	// Validate callback
 	if err := validateCallback(&config.Callback); err != nil {
 		return err
+	}
+
+	// Validate processing behavior
+	// Accept both "markRead" and legacy "mark_read" for backward compatibility; normalize to "markRead".
+	action := strings.TrimSpace(config.Processing.ProcessedAction)
+	switch strings.ToLower(action) {
+	case "markread", "mark_read", "":
+		config.Processing.ProcessedAction = "markRead"
+	case "delete":
+		config.Processing.ProcessedAction = "delete"
+	default:
+		return fmt.Errorf("invalid processing.processedAction '%s' (supported: markRead, delete)", config.Processing.ProcessedAction)
 	}
 
 	return nil
