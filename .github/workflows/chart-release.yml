@@ -6,7 +6,7 @@ on:
     branches:
       - main
     paths:
-      - 'charts/**'
+      - 'charts/go-mail-webhook-service/Chart.yaml'
 
 jobs:
   release:
