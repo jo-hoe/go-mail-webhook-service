@@ -12,6 +12,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/jo-hoe/gohook"
+
 	"github.com/jo-hoe/go-mail-webhook-service/app/config"
 	"github.com/jo-hoe/go-mail-webhook-service/app/mail"
 	"github.com/jo-hoe/go-mail-webhook-service/app/selector"
@@ -73,127 +75,13 @@ func Test_filterMailsBySelectors(t *testing.T) {
 	}
 }
 
-func Test_constructRequest(t *testing.T) {
-	testMethod := "POST"
-	testUrl := "http://example.com"
-	testBody := []byte("{\"testKey\":\"testValue\"}")
-
-	type args struct {
-		mail   mail.Mail
-		config *config.Config
-		protos []selector.SelectorPrototype
-	}
-	tests := []struct {
-		name         string
-		args         args
-		wantMethod   string
-		wantURL      string
-		wantHeaders  http.Header
-		wantBodyText string
-		wantErr      bool
-	}{
-		{
-			name: "construct request without body",
-			args: args{
-				mail: mail.Mail{
-					Body: "testValue",
-				},
-				config: &config.Config{
-					MailSelectors: nil,
-					Callback: config.Callback{
-						Url:    testUrl,
-						Method: testMethod,
-					},
-				},
-				protos: []selector.SelectorPrototype{},
-			},
-			wantMethod:   testMethod,
-			wantURL:      testUrl,
-			wantHeaders:  http.Header{},
-			wantBodyText: "",
-			wantErr:      false,
-		},
-		{
-			name: "construct request with body",
-			args: args{
-				mail: mail.Mail{
-					Body: "testValue",
-				},
-				config: &config.Config{
-					Callback: config.Callback{
-						Url:    testUrl,
-						Method: testMethod,
-						Headers: []config.KeyValue{
-							{Key: "Content-Type", Value: "application/json"},
-						},
-						Body: "{\"testKey\":\"${testKey}\"}",
-					},
-				},
-				protos: mustPrototypes(t, []config.MailSelectorConfig{
-					{
-						Name:    "testKey",
-						Type:    "bodyRegex",
-						Pattern: "testValue",
-					},
-				}),
-			},
-			wantMethod:   testMethod,
-			wantURL:      testUrl,
-			wantHeaders:  http.Header{"Content-Type": []string{"application/json"}},
-			wantBodyText: string(testBody),
-			wantErr:      false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var selected map[string]string
-			if len(tt.args.protos) > 0 {
-				selected, _ = evaluateSelectorsCore(tt.args.mail, tt.args.protos, true)
-			} else {
-				selected = map[string]string{}
-			}
-			got, err := constructRequest(tt.args.mail, tt.args.config, selected)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("constructRequest() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got.Method != tt.wantMethod {
-				t.Errorf("constructRequest() got method = %v, want %v", got.Method, tt.wantMethod)
-			}
-			if got.URL.String() != tt.wantURL {
-				t.Errorf("constructRequest() got url = %v, want %v", got.URL.String(), tt.wantURL)
-			}
-			if !headersEqual(got.Header, tt.wantHeaders) {
-				t.Errorf("constructRequest() got headers = %v, want %v", got.Header, tt.wantHeaders)
-			}
-			var bodyText string
-			if got.Body != nil {
-				b, _ := io.ReadAll(got.Body)
-				bodyText = string(b)
-			} else {
-				bodyText = ""
-			}
-			if bodyText != tt.wantBodyText {
-				t.Errorf("constructRequest() got body = %s, want %s", bodyText, tt.wantBodyText)
-			}
-		})
-	}
-}
-
-func headersEqual(a, b http.Header) bool {
-	if len(a) == 0 && len(b) == 0 {
-		return true
-	}
-	return reflect.DeepEqual(a, b)
-}
-
 func Test_processMail(t *testing.T) {
 	var logBuffer bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(&logBuffer, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	slog.SetDefault(logger)
 	t.Log(logBuffer.String())
 
-	// Build non-scope prototypes for body
+	// Build selector prototypes
 	allProtos, err := buildSelectorPrototypes(&config.Config{
 		MailSelectors: []config.MailSelectorConfig{
 			{
@@ -212,86 +100,84 @@ func Test_processMail(t *testing.T) {
 		t.Fatalf("failed to build selector prototypes: %v", err)
 	}
 
-	type args struct {
-		ctx            context.Context
-		client         *http.Client
-		mailService    mail.MailClientService
-		mail           mail.Mail
-		config         *config.Config
-		wantSuccessLog bool
-	}
 	tests := []struct {
-		name string
-		args args
+		name            string
+		mail            mail.Mail
+		cfg             *config.Config
+		client          *http.Client
+		wantSuccessLog  bool
+		shouldCallHook  bool
 	}{
 		{
 			name: "process mail",
-			args: args{
-				ctx: context.Background(),
-				client: &http.Client{
-					Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-						return &http.Response{
-							StatusCode: 200,
-							Body:       io.NopCloser(strings.NewReader("")),
-							Header:     make(http.Header),
-							Request:    req,
-						}, nil
-					}),
-				},
-				mailService: &mail.MailClientServiceMock{},
-				mail: mail.Mail{
-					Subject: "testSubject",
-					Body:    "testValue",
-				},
-				config: &config.Config{
-					Callback: config.Callback{
-						Url:    "http://example.com",
-						Method: "POST",
-					},
-				},
-				wantSuccessLog: true,
+			mail: mail.Mail{
+				Subject: "testSubject",
+				Body:    "testValue",
 			},
-		}, {
+			cfg: &config.Config{
+				Callback: gohook.Config{
+					URL:    "http://example.com",
+					Method: "POST",
+				},
+			},
+			client: &http.Client{
+				Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+					return &http.Response{
+						StatusCode: 200,
+						Body:       io.NopCloser(strings.NewReader("")),
+						Header:     make(http.Header),
+						Request:    req,
+					}, nil
+				}),
+			},
+			wantSuccessLog: true,
+			shouldCallHook: true,
+		},
+		{
 			name: "process mail without body selector values",
-			args: args{
-				ctx: context.Background(),
-				client: &http.Client{
-					Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-						return &http.Response{
-							StatusCode: 200,
-							Body:       io.NopCloser(strings.NewReader("")),
-							Header:     make(http.Header),
-							Request:    req,
-						}, nil
-					}),
-				},
-				mailService: &mail.MailClientServiceMock{},
-				mail: mail.Mail{
-					Subject: "testSubject",
-					Body:    "noMatch",
-				},
-				config: &config.Config{
-					Callback: config.Callback{
-						Url:    "http://example.com",
-						Method: "POST",
-					},
-				},
-				wantSuccessLog: false,
+			mail: mail.Mail{
+				Subject: "testSubject",
+				Body:    "noMatch",
 			},
+			cfg: &config.Config{
+				Callback: gohook.Config{
+					URL:    "http://example.com",
+					Method: "POST",
+				},
+			},
+			client: &http.Client{
+				Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+					return &http.Response{
+						StatusCode: 200,
+						Body:       io.NopCloser(strings.NewReader("")),
+						Header:     make(http.Header),
+						Request:    req,
+					}, nil
+				}),
+			},
+			wantSuccessLog: false,
+			shouldCallHook: false,
 		},
 	}
+
 	for _, tt := range tests {
-		var wg sync.WaitGroup
-		selected, err := evaluateSelectorsCore(tt.args.mail, allProtos, true)
-		if err == nil {
-			wg.Add(1)
-			processMail(tt.args.ctx, tt.args.client, tt.args.mailService, tt.args.mail, tt.args.config, selected, &wg)
-			wg.Wait()
-		}
-		bufferString := logBuffer.String()
-		if tt.args.wantSuccessLog && !strings.Contains(bufferString, "successfully processed mail") {
-			t.Errorf("Did not find expected log, log was'%s'", bufferString)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			selected, err := evaluateSelectorsCore(tt.mail, allProtos, true)
+			var wg sync.WaitGroup
+			if err == nil && tt.shouldCallHook {
+				exec, err := gohook.NewHookExecutor(tt.cfg.Callback, tt.client)
+				if err != nil {
+					t.Fatalf("failed to create gohook executor: %v", err)
+				}
+				wg.Add(1)
+				processMail(context.Background(), exec, &mail.MailClientServiceMock{}, tt.mail, tt.cfg, selected, &wg)
+				wg.Wait()
+			}
+			bufferString := logBuffer.String()
+			if tt.wantSuccessLog && !strings.Contains(bufferString, "successfully processed mail") {
+				t.Errorf("Did not find expected log, log was'%s'", bufferString)
+			}
+		})
 	}
 }
 
@@ -303,7 +189,7 @@ func Test_processMails(t *testing.T) {
 
 	type args struct {
 		ctx         context.Context
-		client      *http.Client
+		exec        gohook.HookExecutor
 		config      *config.Config
 		mailService mail.MailClientService
 	}
@@ -315,9 +201,17 @@ func Test_processMails(t *testing.T) {
 			name: "process mails",
 			args: args{
 				ctx: context.Background(),
-				client: &http.Client{
-					Transport: &http.Transport{},
-				},
+				exec: func() gohook.HookExecutor {
+					client := &http.Client{Transport: &http.Transport{}}
+					exec, err := gohook.NewHookExecutor(gohook.Config{
+						URL:    "http://example.com",
+						Method: "POST",
+					}, client)
+					if err != nil {
+						t.Fatalf("failed to create gohook executor: %v", err)
+					}
+					return exec
+				}(),
 				mailService: &mail.MailClientServiceMock{
 					ReturnErrorsOnly: false,
 					Mails: []mail.Mail{
@@ -340,8 +234,8 @@ func Test_processMails(t *testing.T) {
 							Pattern: "testValue",
 						},
 					},
-					Callback: config.Callback{
-						Url:    "http://example.com",
+					Callback: gohook.Config{
+						URL:    "http://example.com",
 						Method: "POST",
 					},
 				},
@@ -350,7 +244,7 @@ func Test_processMails(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			processMails(tt.args.ctx, tt.args.client, tt.args.config, tt.args.mailService)
+			processMails(tt.args.ctx, tt.args.exec, tt.args.config, tt.args.mailService)
 		})
 		bufferString := logBuffer.String()
 		numberOfUnreadMails, err := tt.args.mailService.GetAllUnreadMail(context.Background())

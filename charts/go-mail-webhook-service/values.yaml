@@ -100,23 +100,25 @@ logLevel: "info"
 #     pattern: "Total: \\$([0-9]+\\.[0-9]{2})"
 #     captureGroup: 1
 mailSelectors: []
-# -- define the callback configuration for the webhook
+# -- define the callback configuration for the webhook using gohook.Config
 # example:
 # callback:
-#   url: "https://example.net/webhook"
+#   url: "https://example.net/webhook?source={{ .Source }}"
 #   method: "POST"
 #   timeout: "24s"
-#   retries: 0
+#   maxRetries: 0
+#   backoff: "0s"
+#   expectedStatus: [200, 201]
+#   strictTemplates: true
 #   headers:
-#     - key: "Content-Type"
-#       value: "application/json"
-#   queryParams:
-#     - key: "source"
-#       value: "mail"
+#     Content-Type: "application/json"
+#     X-Order-Id: "{{ .OrderId }}"
+#   query:
+#     campaign: "winter"
 #   body: |
 #     {
-#       "orderId": "${OrderId}",
-#       "amount": "${Amount}"
+#       "orderId": "{{ .OrderId }}",
+#       "amount": "{{ .Amount }}"
 #     }
 
 callback: {}

@@ -3,6 +3,8 @@ package config
 import (
 	"reflect"
 	"testing"
+
+	"github.com/jo-hoe/gohook"
 )
 
 func TestNewConfig(t *testing.T) {
@@ -32,7 +34,7 @@ callback:
   url: "https://example.com/callback"
   method: "POST"
   timeout: 8s
-  retries: 10`),
+  maxRetries: 10`),
 		},
 		want: &Config{
 			LogLevel: "info",
@@ -61,14 +63,11 @@ callback:
 					CaptureGroup: 0,
 				},
 			},
-			Callback: Callback{
-				Url:     "https://example.com/callback",
-				Method:  "POST",
-				Timeout: "8s",
-				Retries: 10,
-				Attachments: AttachmentsConfig{
-					FieldPrefix: "attachment",
-				},
+			Callback: gohook.Config{
+				URL:       "https://example.com/callback",
+				Method:    "POST",
+				Timeout:   "8s",
+				MaxRetries: 10,
 			},
 			Processing: Processing{
 				ProcessedAction: "markRead",
@@ -76,9 +75,15 @@ callback:
 		},
 		wantErr: false,
 	}, {
-		name: "negative test",
+		name: "negative test - missing callback url",
 		args: args{
-			yamlBytes: []byte(`invalid yaml`),
+			yamlBytes: []byte(`
+mailSelectors:
+- name: "subjectScope"
+  type: "subjectRegex"
+  pattern: ".*"
+callback:
+  method: "POST"`),
 		},
 		want:    nil,
 		wantErr: true,
@@ -109,34 +114,16 @@ callback:
 					CaptureGroup: 0,
 				},
 			},
-			Callback: Callback{
-				Url:     "https://example.com/callback",
+			Callback: gohook.Config{
+				URL:     "https://example.com/callback",
 				Method:  "POST",
 				Timeout: "24s",
-				Retries: 0,
-				Attachments: AttachmentsConfig{
-					FieldPrefix: "attachment",
-				},
 			},
 			Processing: Processing{
 				ProcessedAction: "markRead",
 			},
 		},
 		wantErr: false,
-	}, {
-		name: "test unsupported http method",
-		args: args{
-			yamlBytes: []byte(`
-mailSelectors:
-- name: "subjectScope"
-  type: "subjectRegex"
-  pattern: ".*"
-callback:
-  url: "https://example.com/callback"
-  method: "invalid"`),
-		},
-		want:    nil,
-		wantErr: true,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -145,8 +132,8 @@ callback:
 				t.Errorf("NewConfigFromYaml() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewConfigFromYaml() = %v, want %v", got, tt.want)
+			if !tt.wantErr && !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("NewConfigFromYaml() = %#v, want %#v", got, tt.want)
 			}
 		})
 	}

@@ -3,6 +3,7 @@ module github.com/jo-hoe/go-mail-webhook-service
 go 1.26.0
 
 require (
+	github.com/jo-hoe/gohook v0.0.0-20260221103509-a54d555e84de
 	golang.org/x/oauth2 v0.35.0
 	google.golang.org/api v0.266.0
 	gopkg.in/yaml.v2 v2.4.0

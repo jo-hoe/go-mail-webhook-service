@@ -1,19 +1,13 @@
 package webhook
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
-	"mime/multipart"
-	"net/http"
-	"path/filepath"
 	"sync"
-	"time"
 
-	callbackField "github.com/jo-hoe/go-mail-webhook-service/app/callbackfield"
+	"github.com/jo-hoe/gohook"
 
 	"github.com/jo-hoe/go-mail-webhook-service/app/config"
 	"github.com/jo-hoe/go-mail-webhook-service/app/mail"
@@ -43,9 +37,9 @@ func (webhookService *WebhookService) Run() {
 	processWebhook(webhookService.config)
 }
 
-func processWebhook(config *config.Config) {
+func processWebhook(cfg *config.Config) {
 	var clientType string
-	if config.MailClient.Gmail.Enabled {
+	if cfg.MailClient.Gmail.Enabled {
 		clientType = gmailClientType
 	} else {
 		slog.Error("no mail client enabled in configuration")
@@ -57,28 +51,18 @@ func processWebhook(config *config.Config) {
 		return
 	}
 
-	client, err := createHttpClient(config)
+	// Build a gohook executor using the library's Config directly.
+	// Pass nil as client so gohook constructs a default client honoring Timeout/InsecureSkipVerify.
+	exec, err := gohook.NewHookExecutor(cfg.Callback, nil)
 	if err != nil {
-		slog.Error("could not create http client", "error", err)
+		slog.Error("could not create gohook executor", "error", err)
 		return
 	}
 
-	processMails(context.Background(), client, config, mailService)
+	processMails(context.Background(), exec, cfg, mailService)
 }
 
-func createHttpClient(config *config.Config) (client *http.Client, err error) {
-	timeout, err := time.ParseDuration(config.Callback.Timeout)
-	if err != nil {
-		return nil, err
-	}
-	client = &http.Client{
-		Timeout: timeout,
-	}
-
-	return client, nil
-}
-
-func processMails(ctx context.Context, client *http.Client, config *config.Config, mailService mail.MailClientService) {
+func processMails(ctx context.Context, exec gohook.HookExecutor, cfg *config.Config, mailService mail.MailClientService) {
 	slog.Info("start reading mails")
 	allMails, err := mailService.GetAllUnreadMail(ctx)
 	if err != nil {
@@ -88,7 +72,7 @@ func processMails(ctx context.Context, client *http.Client, config *config.Confi
 	// Log the total count of unread mails before applying any selectors
 	slog.Info(fmt.Sprintf("number of unread mails is: %d", len(allMails)))
 
-	allProtos, err := buildSelectorPrototypes(config)
+	allProtos, err := buildSelectorPrototypes(cfg)
 	if err != nil {
 		slog.Error("could not build selector prototypes", "error", err)
 		return
@@ -103,43 +87,48 @@ func processMails(ctx context.Context, client *http.Client, config *config.Confi
 	var wg sync.WaitGroup
 	for _, sm := range filteredMails {
 		wg.Add(1)
-		go processMail(ctx, client, mailService, sm.Mail, config, sm.Selected, &wg)
+		go processMail(ctx, exec, mailService, sm.Mail, cfg, sm.Selected, &wg)
 	}
 	wg.Wait()
 }
 
-func processMail(ctx context.Context, client *http.Client, mailService mail.MailClientService,
-	m mail.Mail, config *config.Config, selected map[string]string, wg *sync.WaitGroup) {
+func processMail(ctx context.Context, exec gohook.HookExecutor, mailService mail.MailClientService,
+	m mail.Mail, cfg *config.Config, selected map[string]string, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	var lastErr error
-	for attempts := 0; attempts < config.Callback.Retries+1; attempts++ {
-		// Reconstruct request for each attempt so the body reader is fresh
-		request, err := constructRequest(m, config, selected)
-		if err != nil {
-			slog.Error("could not create request", "mailId", m.Id, "error", err)
-			return
-		}
-
-		lastErr = sendRequest(request, client, m.Id)
-		if lastErr == nil {
-			// Success: apply processed action and log success
-			action, aErr := mail.NewProcessedAction(config.Processing.ProcessedAction)
-			if aErr != nil {
-				slog.Error("invalid processed action; falling back to markRead", "configured", config.Processing.ProcessedAction, "error", aErr)
-				action, _ = mail.NewProcessedAction("markRead")
-			}
-			if err := action.Apply(ctx, mailService, m); err != nil {
-				slog.Error("could not apply processed action", "action", action.Name(), "error", err, "mailId", m.Id)
-			}
-			slog.Info("successfully processed mail", "mailId", m.Id, "subject", m.Subject, "body_prefix", getPrefix(m.Body, 100))
-			return
-		}
-		slog.Error("could not send request", "mailId", m.Id, "attempt", attempts+1, "max_attempts", config.Callback.Retries+1, "error", lastErr)
+	// Execute webhook using gohook with template data from selectors
+	resp, _, err := exec.Execute(ctx, gohook.TemplateData{Values: selected})
+	if err != nil {
+		// gohook already handled retries/backoff according to cfg.Callback
+		slog.Error("webhook execution failed", "mailId", m.Id, "subject", m.Subject, "error", err)
+		return
 	}
 
-	// Exhausted retries: do not mark as read
-	slog.Warn("exhausted retries for mail; leaving unread", "mailId", m.Id, "subject", m.Subject)
+	// Success: apply processed action and log success
+	action, aErr := mail.NewProcessedAction(cfg.Processing.ProcessedAction)
+	if aErr != nil {
+		// No legacy support needed, but fallback to markRead to be safe
+		slog.Error("invalid processed action; falling back to markRead", "configured", cfg.Processing.ProcessedAction, "error", aErr)
+		action, _ = mail.NewProcessedAction("markRead")
+	}
+	if err := action.Apply(ctx, mailService, m); err != nil {
+		slog.Error("could not apply processed action", "action", action.Name(), "error", err, "mailId", m.Id)
+	}
+
+	// Log request/response meta if available
+	method := ""
+	url := ""
+	status := 0
+	if resp != nil {
+		status = resp.StatusCode
+		if resp.Request != nil {
+			method = resp.Request.Method
+			if resp.Request.URL != nil {
+				url = resp.Request.URL.String()
+			}
+		}
+	}
+	slog.Info("successfully processed mail", "mailId", m.Id, "subject", m.Subject, "status_code", status, "method", method, "url", url, "body_prefix", getPrefix(m.Body, 100))
 }
 
 func getPrefix(input string, prefixLength int) string {
@@ -147,122 +136,6 @@ func getPrefix(input string, prefixLength int) string {
 		return fmt.Sprintf("%s...", input[0:prefixLength])
 	}
 	return input
-}
-
-func sendRequest(request *http.Request, client *http.Client, mailId string) error {
-	resp, err := client.Do(request)
-	if err != nil {
-		return err
-	}
-	// Ensure response body is closed to avoid resource leaks and enable connection reuse
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			slog.Warn("failed to close response body", "mailId", mailId, "error", cerr)
-		}
-	}()
-
-	if resp.StatusCode >= 400 {
-		return fmt.Errorf("status: %d - %s for request: %s - %s", resp.StatusCode, resp.Status, request.Method, request.URL.String())
-	} else {
-		slog.Info("request success", "mailId", mailId, "status_code", resp.StatusCode, "method", request.Method, "url", request.URL.String())
-	}
-
-	return nil
-}
-
-func constructRequest(m mail.Mail, cfg *config.Config, selected map[string]string) (request *http.Request, err error) {
-	// Start with a base request without body; we'll attach body/headers/query per sections
-	request, err = http.NewRequest(cfg.Callback.Method, cfg.Callback.Url, nil)
-	if err != nil {
-		return nil, err
-	}
-	// Ensure header map exists before setting any headers
-	if request.Header == nil {
-		request.Header = make(http.Header)
-	}
-
-	// Apply query parameters
-	q := request.URL.Query()
-	for _, kv := range cfg.Callback.QueryParams {
-		v := callbackField.ExpandPlaceholders(kv.Value, selected)
-		q.Add(kv.Key, v)
-	}
-	request.URL.RawQuery = q.Encode()
-
-	// Apply headers
-	for _, kv := range cfg.Callback.Headers {
-		v := callbackField.ExpandPlaceholders(kv.Value, selected)
-		request.Header.Set(kv.Key, v)
-	}
-
-	// Determine whether to build multipart/form-data:
-	// - if form fields exist
-	// - or if attachments forwarding is enabled and there are attachments
-	attachmentsEnabled := cfg.Callback.Attachments.Enabled
-	hasAttachments := attachmentsEnabled && len(m.Attachments) > 0
-	if len(cfg.Callback.Form) > 0 || hasAttachments {
-		var body bytes.Buffer
-		w := multipart.NewWriter(&body)
-
-		// Write configured form fields
-		for _, kv := range cfg.Callback.Form {
-			v := callbackField.ExpandPlaceholders(kv.Value, selected)
-			_ = w.WriteField(kv.Key, v)
-		}
-
-		// Append attachments if enabled
-		if hasAttachments {
-			prefix := cfg.Callback.Attachments.FieldPrefix
-			maxSizeBytes := cfg.Callback.Attachments.MaxSizeBytes
-
-			for i, a := range m.Attachments {
-				// Enforce max size if configured
-				if maxSizeBytes > 0 && int64(len(a.Content)) > maxSizeBytes {
-					slog.Warn("skipping attachment due to size limit", "name", a.Name, "size_bytes", len(a.Content), "max_bytes", maxSizeBytes)
-					continue
-				}
-
-				// Field name and filename (always original when present)
-				fieldName := fmt.Sprintf("%s_%d", prefix, i)
-				filename := a.Name
-				if filename == "" {
-					filename = fmt.Sprintf("%s_%d", prefix, i)
-				}
-				// Sanitize filename to base name
-				filename = filepath.Base(filename)
-
-				fw, err := w.CreateFormFile(fieldName, filename)
-				if err != nil {
-					return nil, err
-				}
-				if _, err := fw.Write(a.Content); err != nil {
-					return nil, err
-				}
-			}
-		}
-
-		if err := w.Close(); err != nil {
-			return nil, err
-		}
-		request.Body = io.NopCloser(bytes.NewReader(body.Bytes()))
-		request.ContentLength = int64(body.Len())
-		// Set Content-Type with boundary if not already provided
-		if request.Header.Get("Content-Type") == "" {
-			request.Header.Set("Content-Type", w.FormDataContentType())
-		}
-		return request, nil
-	}
-
-	// Attach raw body if provided
-	if cfg.Callback.Body != "" {
-		bodyStr := callbackField.ExpandPlaceholders(cfg.Callback.Body, selected)
-		bodyBytes := []byte(bodyStr)
-		request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
-		request.ContentLength = int64(len(bodyBytes))
-		// Do not set Content-Type automatically for raw body; user can supply via headers
-	}
-
-	return request, nil
 }
 
 func evaluateSelectorsCore(m mail.Mail, protos []selector.SelectorPrototype, collectValues bool) (map[string]string, error) {
@@ -311,6 +184,6 @@ func filterMailsBySelectors(mails []mail.Mail, protos []selector.SelectorPrototy
 	return result
 }
 
-func buildSelectorPrototypes(config *config.Config) ([]selector.SelectorPrototype, error) {
-	return selector.NewSelectorPrototypes(config.MailSelectors)
+func buildSelectorPrototypes(cfg *config.Config) ([]selector.SelectorPrototype, error) {
+	return selector.NewSelectorPrototypes(cfg.MailSelectors)
 }

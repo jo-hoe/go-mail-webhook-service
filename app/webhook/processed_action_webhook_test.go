@@ -8,6 +8,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/jo-hoe/gohook"
+
 	"github.com/jo-hoe/go-mail-webhook-service/app/config"
 	"github.com/jo-hoe/go-mail-webhook-service/app/mail"
 )
@@ -35,8 +37,8 @@ func Test_processMail_ProcessedAction_markRead(t *testing.T) {
 	mock := &mail.MailClientServiceMock{}
 	m := mail.Mail{Subject: "s", Body: "b"}
 	cfg := &config.Config{
-		Callback: config.Callback{
-			Url:    "http://example.com",
+		Callback: gohook.Config{
+			URL:    "http://example.com",
 			Method: "POST",
 		},
 		Processing: config.Processing{
@@ -44,9 +46,14 @@ func Test_processMail_ProcessedAction_markRead(t *testing.T) {
 		},
 	}
 
+	exec, err := gohook.NewHookExecutor(cfg.Callback, client)
+	if err != nil {
+		t.Fatalf("failed to create gohook executor: %v", err)
+	}
+
 	var wg sync.WaitGroup
 	wg.Add(1)
-	processMail(ctx, client, mock, m, cfg, map[string]string{}, &wg)
+	processMail(ctx, exec, mock, m, cfg, map[string]string{}, &wg)
 	wg.Wait()
 
 	if mock.MarkReadCalls != 1 {
@@ -63,8 +70,8 @@ func Test_processMail_ProcessedAction_delete(t *testing.T) {
 	mock := &mail.MailClientServiceMock{}
 	m := mail.Mail{Subject: "s", Body: "b"}
 	cfg := &config.Config{
-		Callback: config.Callback{
-			Url:    "http://example.com",
+		Callback: gohook.Config{
+			URL:    "http://example.com",
 			Method: "POST",
 		},
 		Processing: config.Processing{
@@ -72,9 +79,14 @@ func Test_processMail_ProcessedAction_delete(t *testing.T) {
 		},
 	}
 
+	exec, err := gohook.NewHookExecutor(cfg.Callback, client)
+	if err != nil {
+		t.Fatalf("failed to create gohook executor: %v", err)
+	}
+
 	var wg sync.WaitGroup
 	wg.Add(1)
-	processMail(ctx, client, mock, m, cfg, map[string]string{}, &wg)
+	processMail(ctx, exec, mock, m, cfg, map[string]string{}, &wg)
 	wg.Wait()
 
 	if mock.DeleteCalls != 1 {

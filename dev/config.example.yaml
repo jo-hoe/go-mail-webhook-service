@@ -1,22 +1,29 @@
 # config/config.example.yaml
-# Template for go-mail-webhook-service application configuration.
+# Template for go-mail-webhook-service application configuration using gohook.Config for callbacks.
 # Copy this file to config/config.yaml and replace placeholder values with real ones.
 #
 # Notes:
 # - The top-level structure is a single YAML object (one configuration).
 # - Supported selector types: "subjectRegex", "bodyRegex", "attachmentNameRegex", "senderRegex", "recipientRegex"
-# - Supported HTTP methods: GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS, TRACE
+# - Supported HTTP methods: GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS, TRACE (gohook leaves method free-form; choose appropriately)
 #
-# Placeholders:
-# - Use ${SelectorName} in callback values (headers/queryParams/form/body) to reference a selector's extracted value.
+# Placeholders (gohook templates):
+# - Use {{ .SelectorName }} in callback values (URL/headers/query/body) to reference a selector's extracted value.
 # - Selector names must be alphanumeric only (^[0-9A-Za-z]+$).
 #
-# Callback schema:
-# - callback.headers: list of {key, value} where key allows alphanumeric and hyphens
-# - callback.queryParams: list of {key, value} where key is alphanumeric only
-# - callback.form: list of {key, value} (multipart/form-data) where key is alphanumeric only
-# - callback.attachments: configuration for forwarding email attachments (multipart file parts)
-# - callback.body: raw string body; you can build JSON yourself if desired
+# Callback schema (delegated to gohook.Config):
+# - callback.url: string (may contain templates)
+# - callback.method: string (if empty, defaults to POST when body is non-empty else GET)
+# - callback.headers: map[string]string (keys and values may contain templates)
+# - callback.query: map[string]string (keys and values may contain templates)
+# - callback.contentType: string (applied if set and not already set via headers)
+# - callback.body: string (raw request body; may contain templates)
+# - callback.timeout: string (Kubernetes-style duration, e.g., "10s", "3m", "1h30m", "4d")
+# - callback.insecureSkipVerify: bool (disable TLS verification for the default client; use only for testing)
+# - callback.strictTemplates: bool (true → error on missing keys; false → render as <no value>)
+# - callback.expectedStatus: list of acceptable HTTP status codes; when set, unexpected codes cause retries
+# - callback.maxRetries: int (number of retry attempts on transport errors/unexpected status)
+# - callback.backoff: string (delay between retries; Kubernetes-style duration)
 #
 # Processing behavior:
 # - processing.processedAction controls how an email is marked as processed after a successful webhook call.
@@ -27,7 +34,7 @@
 # Selector behavior:
 # - All selectors provided must match for an email to be processed. If any selector fails to match, the email is skipped.
 
-# Comprehensive configuration demonstrating selectors and structured callback sections
+# Logging level: "debug" | "info" | "warn" | "error"
 logLevel: "info"
 
 mailSelectors:
@@ -58,47 +65,39 @@ mailSelectors:
 callback:
   # The webhook endpoint to call with extracted values
   # here we use host.docker.internal to access a service running on the host machine from inside the Docker container; adjust as needed for your environment
-  url: "http://host.docker.internal:8080/api"
-  # HTTP method must be one of: GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS, TRACE
+  url: "http://host.docker.internal:8080/api?fileNum={{ .FileNum }}"
+  # HTTP method
   method: "POST"
-  # Request timeout (Go duration format). Default is "24s" if omitted.
+
+  # Request timeout (Kubernetes-style duration). Default is "24s" if omitted.
   timeout: "24s"
-  # Number of retry attempts for the callback. Must be >= 0. Default is 0.
-  retries: 0
 
-  # Structured sections
+  # Retry configuration
+  maxRetries: 0
+  backoff: "0s"
+  expectedStatus: [200, 201]
+
+  # Strict template handling and optional TLS settings
+  strictTemplates: true
+  insecureSkipVerify: false
+
+  # Headers as a map (keys and values can use templates)
   headers:
-    # Header example: hyphens allowed in header names
-    - key: "X-Order-Id"
-      value: "${OrderId}"
-    # Often you may need to set a content type when using raw body
-    - key: "Content-Type"
-      value: "application/json"
+    X-Order-Id: "{{ .OrderId }}"
+    Content-Type: "application/json"
 
-  queryParams:
-    # Query parameter example (alphanumeric key)
-    - key: "fileNum"
-      value: "${FileNum}"
+  # Additional query parameters as a map (merged with URL's query)
+  query:
+    senderDomain: "{{ .SenderDomain }}"
 
-  form:
-    # Form field example (sent as multipart/form-data)
-    - key: "note"
-      value: "Processed order ${OrderId}"
+  # Optional explicit content type (used when not set via headers)
+  # contentType: "application/json"
 
-  # Forward attachments as multipart/form-data file parts
-  # Note: When attachments.enabled is true (or form has fields), the request will be multipart/form-data.
-  # If you also need to send a structured payload, include it as form fields.
-  attachments:
-    enabled: false
-    fieldPrefix: "attachment"      # Parts will be named like "attachment_0", "attachment_1", ...
-    maxSize: "0"                   # "0" or empty means no per-attachment size limit
-
-  # Raw body: build JSON yourself using placeholders if needed
-  # Note: Raw body is only used when not sending multipart/form-data (i.e., no form fields and no attachments).
+  # Raw body: build JSON yourself using gohook templates
   body: |
     {
-      "amount": "${Amount}",
-      "senderDomain": "${SenderDomain}"
+      "amount": "{{ .Amount }}",
+      "source": "go-mail-webhook-service"
     }
 
 # Processing behavior: choose how to mark mails after successful processing
@@ -106,21 +105,17 @@ processing:
   # Supported values: "markRead" (default) or "delete"
   processedAction: "markRead"
 
-# Minimal configuration (GET with query param)
+# Minimal configuration example (GET with query param)
 # Uncomment below to use a minimal example instead of the comprehensive one
 #
 # mailSelectors:
-#   # Capture a URL from the email body (full match)
 #   - name: "Link"
 #     type: "bodyRegex"
 #     pattern: "https?://(www\\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}([-a-zA-Z0-9()@:%_+.~#?&/=]*)"
-#     captureGroup: 0   # 0 means use the entire match
+#     captureGroup: 0
 #
 # callback:
-#   url: "https://api.example.com/collect"
+#   url: "https://api.example.com/collect?url={{ .Link }}"
 #   method: "GET"
 #   timeout: "10s"
-#   retries: 1
-#   queryParams:
-#     - key: "url"
-#       value: "${Link}"
+#   expectedStatus: [200]
