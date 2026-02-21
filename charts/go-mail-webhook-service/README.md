@@ -1,6 +1,6 @@
 # go-mail-webhook-service
 
-![Version: 5.1.0](https://img.shields.io/badge/Version-5.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 3.1.0](https://img.shields.io/badge/AppVersion-3.1.0-informational?style=flat-square)
+![Version: 6.0.1](https://img.shields.io/badge/Version-6.0.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 6.0.1](https://img.shields.io/badge/AppVersion-6.0.1-informational?style=flat-square)
 
 A Helm chart for deploying go-mail-webhook-service (polls mail and triggers webhooks)
 
@@ -15,8 +15,8 @@ A Helm chart for deploying go-mail-webhook-service (polls mail and triggers webh
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` |  |
-| callback | object | `{}` | gohook.Config-style map for webhook callback (url, method, headers, query, body, multipart, timeout, maxRetries, backoff, expectedStatus). Uses Go text/template placeholders {{ .Name }}. |
-| attachments | object | `{"enabled":false,"fieldPrefix":"attachment","maxSize":"0"}` | Attachment forwarding controls; when enabled, email attachments are added as multipart files at runtime using fieldPrefix and maxSize. |
+| attachments | object | `{"enabled":false,"fieldPrefix":"attachment","maxSize":"0"}` | Attachment forwarding controls (added as multipart files at runtime) |
+| callback | object | `{}` | Define the callback configuration for the webhook (maps to gohook.Config) Example using Go text/template placeholders {{ .Name }}: callback:   url: "https://example.net/webhook"   method: "POST"   timeout: "24s"   maxRetries: 0   headers:     Content-Type: "application/json"   query:     source: "mail"   # multipart:   #   fields:   #     note: "Processed order {{ .OrderId }}"   body: |     {       "orderId": "{{ .OrderId }}",       "amount": "{{ .Amount }}"     } |
 | env | list | `[]` | Environment variables for the container |
 | extraVolumeMounts | list | `[]` |  |
 | extraVolumes | list | `[]` |  |
@@ -37,7 +37,7 @@ A Helm chart for deploying go-mail-webhook-service (polls mail and triggers webh
 | mailClient.gmail.enabled | bool | `true` | enable Gmail client |
 | mailClient.gmail.mountPath | string | `"/secrets/mail"` | defines where the secret is mounted in the container (used by the app) |
 | mailClient.gmail.secrets | object | `{"create":false,"credentialsBase64":"","filename":"client_secret.json","name":"","tokenBase64":"","tokenFilename":"request.token"}` | creation and content options for client credentials and token |
-| mailSelectors | list | `[]` | Provide empty defaults so templates resolve keys; override in your values when deploying example mailSelectors:   - name: "OrderId"     type: "subjectRegex"     pattern: "Order ([0-9]+) confirmed"     captureGroup: 1   - name: "Amount"     type: "bodyRegex"     pattern: "Total: \\$([0-9]+\\.[0-9]{2})"     captureGroup: 1 |
+| mailSelectors | list | `[]` |  |
 | nameOverride | string | `""` |  |
 | nodeSelector | object | `{}` |  |
 | podAnnotations | object | `{}` |  |
