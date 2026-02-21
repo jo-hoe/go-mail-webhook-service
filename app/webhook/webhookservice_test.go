@@ -139,12 +139,6 @@ func Test_processMail_requestBodyTemplating(t *testing.T) {
 	}
 }
 
-func headersEqual(a, b http.Header) bool {
-	if len(a) == 0 && len(b) == 0 {
-		return true
-	}
-	return reflect.DeepEqual(a, b)
-}
 
 func Test_processMail(t *testing.T) {
 	var logBuffer bytes.Buffer
