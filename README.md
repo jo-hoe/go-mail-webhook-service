@@ -99,7 +99,7 @@ make
 
 The project uses golangci-lint.
 
-Install: https://golangci-lint.run/usage/install/
+Install: <https://golangci-lint.run/usage/install/>
 
 Run:
 
