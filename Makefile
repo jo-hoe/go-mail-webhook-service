@@ -62,11 +62,17 @@ push-k3d: ## build and push docker image to local registry
 
 .PHONY: start-k3d
 start-k3d: start-cluster push-k3d ## create k3d cluster, push local image, install helm chart with dev values
-	@helm install ${IMAGE_NAME} ${ROOT_DIR}charts/${IMAGE_NAME} \\\r\n		--set image.repository=${LOCAL_REGISTRY_HELM}/${IMAGE_NAME} \\\r\n		--set image.tag=${IMAGE_VERSION} \\\r\n		-f ${ROOT_DIR}dev/config.yaml
+	@helm install ${IMAGE_NAME} ${ROOT_DIR}charts/${IMAGE_NAME} \
+		--set image.repository=${LOCAL_REGISTRY_HELM}/${IMAGE_NAME} \
+		--set image.tag=${IMAGE_VERSION} \
+		-f ${ROOT_DIR}dev/config.yaml
 
 .PHONY: upgrade-k3d
 upgrade-k3d: push-k3d ## upgrade Helm release with latest local image & dev values
-	@helm upgrade ${IMAGE_NAME} ${ROOT_DIR}charts/${IMAGE_NAME} \\\r\n		--set image.repository=${LOCAL_REGISTRY_HELM}/${IMAGE_NAME} \\\r\n		--set image.tag=${IMAGE_VERSION} \\\r\n		-f ${ROOT_DIR}dev/config.yaml
+	@helm upgrade ${IMAGE_NAME} ${ROOT_DIR}charts/${IMAGE_NAME} \
+		--set image.repository=${LOCAL_REGISTRY_HELM}/${IMAGE_NAME} \
+		--set image.tag=${IMAGE_VERSION} \
+		-f ${ROOT_DIR}dev/config.yaml
 
 .PHONY: uninstall-k3d
 uninstall-k3d: ## uninstall Helm release from k3d cluster
