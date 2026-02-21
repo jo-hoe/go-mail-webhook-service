@@ -8,7 +8,7 @@
 # - Supported HTTP methods: GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS, TRACE
 #
 # Placeholders:
-# - Use ${SelectorName} in callback values (headers/queryParams/form/body) to reference a selector's extracted value.
+# - Use {{ .SelectorName }} in callback values (headers/queryParams/form/body) to reference a selector's extracted value.
 # - Selector names must be alphanumeric only (^[0-9A-Za-z]+$).
 #
 # Callback schema:
@@ -70,7 +70,7 @@ callback:
   headers:
     # Header example: hyphens allowed in header names
     - key: "X-Order-Id"
-      value: "${OrderId}"
+      value: "{{ .OrderId }}"
     # Often you may need to set a content type when using raw body
     - key: "Content-Type"
       value: "application/json"
@@ -78,12 +78,12 @@ callback:
   queryParams:
     # Query parameter example (alphanumeric key)
     - key: "fileNum"
-      value: "${FileNum}"
+      value: "{{ .FileNum }}"
 
   form:
     # Form field example (sent as multipart/form-data)
     - key: "note"
-      value: "Processed order ${OrderId}"
+      value: "Processed order {{ .OrderId }}"
 
   # Forward attachments as multipart/form-data file parts
   # Note: When attachments.enabled is true (or form has fields), the request will be multipart/form-data.
@@ -97,8 +97,8 @@ callback:
   # Note: Raw body is only used when not sending multipart/form-data (i.e., no form fields and no attachments).
   body: |
     {
-      "amount": "${Amount}",
-      "senderDomain": "${SenderDomain}"
+      "amount": "{{ .Amount }}",
+      "senderDomain": "{{ .SenderDomain }}"
     }
 
 # Processing behavior: choose how to mark mails after successful processing
@@ -123,4 +123,4 @@ processing:
 #   retries: 1
 #   queryParams:
 #     - key: "url"
-#       value: "${Link}"
+#       value: "{{ .Link }}"

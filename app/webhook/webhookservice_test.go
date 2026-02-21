@@ -73,110 +73,69 @@ func Test_filterMailsBySelectors(t *testing.T) {
 	}
 }
 
-func Test_constructRequest(t *testing.T) {
+func Test_processMail_requestBodyTemplating(t *testing.T) {
 	testMethod := "POST"
 	testUrl := "http://example.com"
-	testBody := []byte("{\"testKey\":\"testValue\"}")
+	expectedBody := "{\"testKey\":\"testValue\"}"
 
-	type args struct {
-		mail   mail.Mail
-		config *config.Config
-		protos []selector.SelectorPrototype
+	// Capture sent request details
+	var gotMethod string
+	var gotURL string
+	var gotHeaders http.Header
+	var gotBody string
+
+	client := &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			gotMethod = req.Method
+			gotURL = req.URL.String()
+			gotHeaders = req.Header.Clone()
+			if req.Body != nil {
+				b, _ := io.ReadAll(req.Body)
+				gotBody = string(b)
+			}
+			return &http.Response{
+				StatusCode: 200,
+				Body:       io.NopCloser(strings.NewReader("")),
+				Header:     make(http.Header),
+				Request:    req,
+			}, nil
+		}),
 	}
-	tests := []struct {
-		name         string
-		args         args
-		wantMethod   string
-		wantURL      string
-		wantHeaders  http.Header
-		wantBodyText string
-		wantErr      bool
-	}{
-		{
-			name: "construct request without body",
-			args: args{
-				mail: mail.Mail{
-					Body: "testValue",
-				},
-				config: &config.Config{
-					MailSelectors: nil,
-					Callback: config.Callback{
-						Url:    testUrl,
-						Method: testMethod,
-					},
-				},
-				protos: []selector.SelectorPrototype{},
+
+	mock := &mail.MailClientServiceMock{}
+	m := mail.Mail{Subject: "s", Body: "b"}
+
+	cfg := &config.Config{
+		Callback: config.Callback{
+			Url:    testUrl,
+			Method: testMethod,
+			Headers: []config.KeyValue{
+				{Key: "Content-Type", Value: "application/json"},
 			},
-			wantMethod:   testMethod,
-			wantURL:      testUrl,
-			wantHeaders:  http.Header{},
-			wantBodyText: "",
-			wantErr:      false,
-		},
-		{
-			name: "construct request with body",
-			args: args{
-				mail: mail.Mail{
-					Body: "testValue",
-				},
-				config: &config.Config{
-					Callback: config.Callback{
-						Url:    testUrl,
-						Method: testMethod,
-						Headers: []config.KeyValue{
-							{Key: "Content-Type", Value: "application/json"},
-						},
-						Body: "{\"testKey\":\"${testKey}\"}",
-					},
-				},
-				protos: mustPrototypes(t, []config.MailSelectorConfig{
-					{
-						Name:    "testKey",
-						Type:    "bodyRegex",
-						Pattern: "testValue",
-					},
-				}),
-			},
-			wantMethod:   testMethod,
-			wantURL:      testUrl,
-			wantHeaders:  http.Header{"Content-Type": []string{"application/json"}},
-			wantBodyText: string(testBody),
-			wantErr:      false,
+			// New template syntax for gohook
+			Body: "{\"testKey\":\"{{ .testKey }}\"}",
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var selected map[string]string
-			if len(tt.args.protos) > 0 {
-				selected, _ = evaluateSelectorsCore(tt.args.mail, tt.args.protos, true)
-			} else {
-				selected = map[string]string{}
-			}
-			got, err := constructRequest(tt.args.mail, tt.args.config, selected)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("constructRequest() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got.Method != tt.wantMethod {
-				t.Errorf("constructRequest() got method = %v, want %v", got.Method, tt.wantMethod)
-			}
-			if got.URL.String() != tt.wantURL {
-				t.Errorf("constructRequest() got url = %v, want %v", got.URL.String(), tt.wantURL)
-			}
-			if !headersEqual(got.Header, tt.wantHeaders) {
-				t.Errorf("constructRequest() got headers = %v, want %v", got.Header, tt.wantHeaders)
-			}
-			var bodyText string
-			if got.Body != nil {
-				b, _ := io.ReadAll(got.Body)
-				bodyText = string(b)
-			} else {
-				bodyText = ""
-			}
-			if bodyText != tt.wantBodyText {
-				t.Errorf("constructRequest() got body = %s, want %s", bodyText, tt.wantBodyText)
-			}
-		})
+
+	selected := map[string]string{"testKey": "testValue"}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	processMail(context.Background(), client, mock, m, cfg, selected, &wg)
+	wg.Wait()
+
+	if gotMethod != testMethod {
+		t.Errorf("method = %s, want %s", gotMethod, testMethod)
+	}
+	if gotURL != testUrl {
+		t.Errorf("url = %s, want %s", gotURL, testUrl)
+	}
+	if gotBody != expectedBody {
+		t.Errorf("body = %s, want %s", gotBody, expectedBody)
+	}
+	// Optional: check header presence
+	if gotHeaders.Get("Content-Type") != "application/json" {
+		t.Errorf("Content-Type header = %s, want application/json", gotHeaders.Get("Content-Type"))
 	}
 }
 

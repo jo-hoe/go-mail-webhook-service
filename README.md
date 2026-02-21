@@ -37,7 +37,7 @@ Create a file `dev/config.yaml` (use `dev/config.example.yaml` as a template). T
 
 Placeholders:
 
-- Use ${SelectorName} in headers/queryParams/form/body to substitute values extracted by selectors.
+- Use {{ .SelectorName }} in headers/queryParams/form/body to substitute values extracted by selectors (Go text/template syntax).
 - Selector names must be alphanumeric only (^[0-9A-Za-z]+$).
 
 Example:
@@ -61,7 +61,7 @@ callback:
 
   headers:
     - key: "X-Order-Id"
-      value: "${OrderId}"
+      value: "{{ .OrderId }}"
     - key: "Content-Type"
       value: "application/json"
 
@@ -71,11 +71,11 @@ callback:
 
   form:
     - key: "note"
-      value: "Processed order ${OrderId}"
+      value: "Processed order {{ .OrderId }}"
 
   body: |
     {
-      "amount": "${Amount}"
+      "amount": "{{ .Amount }}"
     }
 ```
 
