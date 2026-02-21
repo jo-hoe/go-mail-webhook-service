@@ -108,7 +108,9 @@ mailSelectors: []
 #   timeout: "24s"
 #   maxRetries: 0
 #   backoff: "0s"
-#   expectedStatus: [200, 201]
+#   expectedStatus:
+#     - 200
+#     - 201
 #   strictTemplates: true
 #   headers:
 #     Content-Type: "application/json"
