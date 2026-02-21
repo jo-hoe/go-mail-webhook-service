@@ -15,6 +15,7 @@ import (
 	"github.com/jo-hoe/go-mail-webhook-service/app/config"
 	"github.com/jo-hoe/go-mail-webhook-service/app/mail"
 	"github.com/jo-hoe/go-mail-webhook-service/app/selector"
+	"github.com/jo-hoe/goback"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
@@ -106,13 +107,12 @@ func Test_processMail_requestBodyTemplating(t *testing.T) {
 	m := mail.Mail{Subject: "s", Body: "b"}
 
 	cfg := &config.Config{
-		Callback: config.Callback{
-			Url:    testUrl,
+		Callback: goback.Config{
+			URL:    testUrl,
 			Method: testMethod,
-			Headers: []config.KeyValue{
-				{Key: "Content-Type", Value: "application/json"},
+			Headers: map[string]string{
+				"Content-Type": "application/json",
 			},
-			// New template syntax for gohook
 			Body: "{\"testKey\":\"{{ .testKey }}\"}",
 		},
 	}
@@ -203,8 +203,8 @@ func Test_processMail(t *testing.T) {
 					Body:    "testValue",
 				},
 				config: &config.Config{
-					Callback: config.Callback{
-						Url:    "http://example.com",
+					Callback: goback.Config{
+						URL:    "http://example.com",
 						Method: "POST",
 					},
 				},
@@ -230,8 +230,8 @@ func Test_processMail(t *testing.T) {
 					Body:    "noMatch",
 				},
 				config: &config.Config{
-					Callback: config.Callback{
-						Url:    "http://example.com",
+					Callback: goback.Config{
+						URL:    "http://example.com",
 						Method: "POST",
 					},
 				},
@@ -299,8 +299,8 @@ func Test_processMails(t *testing.T) {
 							Pattern: "testValue",
 						},
 					},
-					Callback: config.Callback{
-						Url:    "http://example.com",
+					Callback: goback.Config{
+						URL:    "http://example.com",
 						Method: "POST",
 					},
 				},

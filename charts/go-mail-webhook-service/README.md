@@ -15,7 +15,8 @@ A Helm chart for deploying go-mail-webhook-service (polls mail and triggers webh
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` |  |
-| callback | object | `{}` |  |
+| callback | object | `{}` | gohook.Config-style map for webhook callback (url, method, headers, query, body, multipart, timeout, maxRetries, backoff, expectedStatus). Uses Go text/template placeholders {{ .Name }}. |
+| attachments | object | `{"enabled":false,"fieldPrefix":"attachment","maxSize":"0"}` | Attachment forwarding controls; when enabled, email attachments are added as multipart files at runtime using fieldPrefix and maxSize. |
 | env | list | `[]` | Environment variables for the container |
 | extraVolumeMounts | list | `[]` |  |
 | extraVolumes | list | `[]` |  |

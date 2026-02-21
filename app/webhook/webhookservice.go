@@ -7,9 +7,8 @@ import (
 	"net/http"
 	"path/filepath"
 	"sync"
-	"time"
 
-	"github.com/jo-hoe/gohook"
+	"github.com/jo-hoe/goback"
 
 	"github.com/jo-hoe/go-mail-webhook-service/app/config"
 	"github.com/jo-hoe/go-mail-webhook-service/app/mail"
@@ -53,25 +52,8 @@ func processWebhook(cfg *config.Config) {
 		return
 	}
 
-	client, err := createHttpClient(cfg)
-	if err != nil {
-		slog.Error("could not create http client", "error", err)
-		return
-	}
-
-	processMails(context.Background(), client, cfg, mailService)
-}
-
-func createHttpClient(cfg *config.Config) (client *http.Client, err error) {
-	timeout, err := time.ParseDuration(cfg.Callback.Timeout)
-	if err != nil {
-		return nil, err
-	}
-	client = &http.Client{
-		Timeout: timeout,
-	}
-
-	return client, nil
+	// Let goback construct its own http.Client honoring cfg.Callback.Timeout and InsecureSkipVerify.
+	processMails(context.Background(), nil, cfg, mailService)
 }
 
 func processMails(ctx context.Context, client *http.Client, cfg *config.Config, mailService mail.MailClientService) {
@@ -108,13 +90,13 @@ func processMail(ctx context.Context, client *http.Client, mailService mail.Mail
 	defer wg.Done()
 
 	hookCfg := buildHookConfig(cfg, m)
-	exec, err := gohook.NewHookExecutor(hookCfg, client)
+	exec, err := goback.NewCallbackExecutor(hookCfg, client)
 	if err != nil {
 		slog.Error("could not create webhook executor", "mailId", m.Id, "error", err)
 		return
 	}
 
-	resp, _, err := exec.Execute(ctx, gohook.TemplateData{Values: selected})
+	resp, _, err := exec.Execute(ctx, goback.TemplateData{Values: selected})
 	if err != nil {
 		slog.Error("webhook execution failed", "mailId", m.Id, "error", err)
 		return
@@ -142,57 +124,44 @@ func getPrefix(input string, prefixLength int) string {
 	return input
 }
 
-// buildHookConfig maps our config into a gohook Config, including attachments/form mapping.
-// ExpectedStatus is set to accept 2xx and 3xx to mirror previous behavior of treating >= 400 as error.
-func buildHookConfig(cfg *config.Config, m mail.Mail) gohook.Config {
-	headers := make(map[string]string, len(cfg.Callback.Headers))
-	for _, kv := range cfg.Callback.Headers {
-		headers[kv.Key] = kv.Value
-	}
-	query := make(map[string]string, len(cfg.Callback.QueryParams))
-	for _, kv := range cfg.Callback.QueryParams {
-		query[kv.Key] = kv.Value
-	}
+// buildHookConfig starts from cfg.Callback and augments it with runtime attachment files.
+// When no ExpectedStatus is configured, defaults to 2xx/3xx as success to mirror prior behavior.
+func buildHookConfig(cfg *config.Config, m mail.Mail) goback.Config {
+	// Start from the configured hook
+	h := cfg.Callback
 
-	var mp *gohook.Multipart
-	if len(cfg.Callback.Form) > 0 || (cfg.Callback.Attachments.Enabled && len(m.Attachments) > 0) {
-		fields := make(map[string]string, len(cfg.Callback.Form))
-		for _, kv := range cfg.Callback.Form {
-			fields[kv.Key] = kv.Value
-		}
-		files := buildAttachmentFiles(cfg, m)
-		mp = &gohook.Multipart{
-			Fields: fields,
-			Files:  files,
+	// Ensure multipart exists when we need to attach fields or files
+	if h.Multipart == nil && (cfg.Attachments.Enabled && len(m.Attachments) > 0) {
+		h.Multipart = &goback.Multipart{
+			Fields: nil,
+			Files:  nil,
 		}
 	}
 
-	return gohook.Config{
-		URL:            cfg.Callback.Url,
-		Method:         cfg.Callback.Method,
-		Headers:        headers,
-		Query:          query,
-		Body:           cfg.Callback.Body,
-		Multipart:      mp,
-		Timeout:        cfg.Callback.Timeout,
-		StrictTemplates: false, // previous placeholder expansion tolerated missing keys
-		ExpectedStatus: successStatusCodes(),
-		MaxRetries:     cfg.Callback.Retries,
-		Backoff:        "", // no backoff in legacy config
+	// Append files for attachments if enabled
+	if h.Multipart != nil && cfg.Attachments.Enabled && len(m.Attachments) > 0 {
+		h.Multipart.Files = append(h.Multipart.Files, buildAttachmentFiles(cfg, m)...)
 	}
+
+	// Apply a default ExpectedStatus if not set
+	if len(h.ExpectedStatus) == 0 {
+		h.ExpectedStatus = successStatusCodes()
+	}
+
+	return h
 }
 
-func buildAttachmentFiles(cfg *config.Config, m mail.Mail) []gohook.ByteFile {
-	if !cfg.Callback.Attachments.Enabled || len(m.Attachments) == 0 {
+func buildAttachmentFiles(cfg *config.Config, m mail.Mail) []goback.ByteFile {
+	if !cfg.Attachments.Enabled || len(m.Attachments) == 0 {
 		return nil
 	}
-	prefix := cfg.Callback.Attachments.FieldPrefix
+	prefix := cfg.Attachments.FieldPrefix
 	if prefix == "" {
 		prefix = "attachment"
 	}
-	maxSize := cfg.Callback.Attachments.MaxSizeBytes
+	maxSize := cfg.Attachments.MaxSizeBytes
 
-	files := make([]gohook.ByteFile, 0, len(m.Attachments))
+	files := make([]goback.ByteFile, 0, len(m.Attachments))
 	for i, a := range m.Attachments {
 		if maxSize > 0 && int64(len(a.Content)) > maxSize {
 			slog.Warn("skipping attachment due to size limit", "name", a.Name, "size_bytes", len(a.Content), "max_bytes", maxSize)
@@ -204,11 +173,11 @@ func buildAttachmentFiles(cfg *config.Config, m mail.Mail) []gohook.ByteFile {
 			name = field
 		}
 		name = filepath.Base(name)
-		files = append(files, gohook.ByteFile{
-			Field:    field,
-			FileName: name,
-			Data:     a.Content,
-		})
+		files = append(files, goback.ByteFile{
+            Field:    field,
+            FileName: name,
+            Data:     a.Content,
+        })
 	}
 	return files
 }

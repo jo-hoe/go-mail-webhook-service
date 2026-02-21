@@ -10,6 +10,7 @@ import (
 
 	"github.com/jo-hoe/go-mail-webhook-service/app/config"
 	"github.com/jo-hoe/go-mail-webhook-service/app/mail"
+	"github.com/jo-hoe/goback"
 )
 
 type rtFunc func(*http.Request) (*http.Response, error)
@@ -35,8 +36,8 @@ func Test_processMail_ProcessedAction_markRead(t *testing.T) {
 	mock := &mail.MailClientServiceMock{}
 	m := mail.Mail{Subject: "s", Body: "b"}
 	cfg := &config.Config{
-		Callback: config.Callback{
-			Url:    "http://example.com",
+		Callback: goback.Config{
+			URL:    "http://example.com",
 			Method: "POST",
 		},
 		Processing: config.Processing{
@@ -63,8 +64,8 @@ func Test_processMail_ProcessedAction_delete(t *testing.T) {
 	mock := &mail.MailClientServiceMock{}
 	m := mail.Mail{Subject: "s", Body: "b"}
 	cfg := &config.Config{
-		Callback: config.Callback{
-			Url:    "http://example.com",
+		Callback: goback.Config{
+			URL:    "http://example.com",
 			Method: "POST",
 		},
 		Processing: config.Processing{

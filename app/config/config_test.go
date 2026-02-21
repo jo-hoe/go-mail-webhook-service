@@ -3,6 +3,8 @@ package config
 import (
 	"reflect"
 	"testing"
+
+	"github.com/jo-hoe/goback"
 )
 
 func TestNewConfig(t *testing.T) {
@@ -14,10 +16,11 @@ func TestNewConfig(t *testing.T) {
 		args    args
 		want    *Config
 		wantErr bool
-	}{{
-		name: "positive test",
-		args: args{
-			yamlBytes: []byte(`
+	}{
+		{
+			name: "positive test with hook config",
+			args: args{
+				yamlBytes: []byte(`
 mailSelectors:
 - name: "subjectScope"
   type: "subjectRegex"
@@ -31,122 +34,107 @@ mailSelectors:
 callback:
   url: "https://example.com/callback"
   method: "POST"
-  timeout: 8s
-  retries: 10`),
-		},
-		want: &Config{
-			LogLevel: "info",
-			MailClient: MailClient{
-				Gmail: GmailClient{
-					Enabled: true,
-				},
+  timeout: "8s"
+processing:
+  processedAction: "markRead"
+`),
 			},
-			MailSelectors: []MailSelectorConfig{
-				{
-					Name:         "subjectScope",
-					Type:         "subjectRegex",
-					Pattern:      ".*",
-					CaptureGroup: 0,
+			want: &Config{
+				LogLevel: "info",
+				MailClient: MailClient{
+					Gmail: GmailClient{Enabled: true},
 				},
-				{
-					Name:         "test",
-					Type:         "bodyRegex",
-					Pattern:      "[a-z]{0,6}",
-					CaptureGroup: 0,
+				MailSelectors: []MailSelectorConfig{
+					{Name: "subjectScope", Type: "subjectRegex", Pattern: ".*", CaptureGroup: 0},
+					{Name: "test", Type: "bodyRegex", Pattern: "[a-z]{0,6}", CaptureGroup: 0},
+					{Name: "test2", Type: "bodyRegex", Pattern: ".*", CaptureGroup: 0},
 				},
-				{
-					Name:         "test2",
-					Type:         "bodyRegex",
-					Pattern:      ".*",
-					CaptureGroup: 0,
+				Callback: goback.Config{
+					URL:    "https://example.com/callback",
+					Method: "POST",
+					Timeout: "8s",
 				},
-			},
-			Callback: Callback{
-				Url:     "https://example.com/callback",
-				Method:  "POST",
-				Timeout: "8s",
-				Retries: 10,
 				Attachments: AttachmentsConfig{
-					FieldPrefix: "attachment",
+					FieldPrefix:  "attachment",
+					MaxSize:      "",
+					MaxSizeBytes: 0,
+				},
+				Processing: Processing{
+					ProcessedAction: "markRead",
 				},
 			},
-			Processing: Processing{
-				ProcessedAction: "markRead",
+			wantErr: false,
+		},
+		{
+			name: "negative test invalid yaml",
+			args: args{
+				yamlBytes: []byte(`invalid yaml`),
 			},
+			want:    nil,
+			wantErr: true,
 		},
-		wantErr: false,
-	}, {
-		name: "negative test",
-		args: args{
-			yamlBytes: []byte(`invalid yaml`),
-		},
-		want:    nil,
-		wantErr: true,
-	}, {
-		name: "test defaults",
-		args: args{
-			yamlBytes: []byte(`
+		{
+			name: "test defaults",
+			args: args{
+				yamlBytes: []byte(`
 mailSelectors:
 - name: "subjectScope"
   type: "subjectRegex"
   pattern: ".*"
 callback:
   url: "https://example.com/callback"
-  method: "POST"`),
-		},
-		want: &Config{
-			LogLevel: "info",
-			MailClient: MailClient{
-				Gmail: GmailClient{
-					Enabled: true,
-				},
+`),
 			},
-			MailSelectors: []MailSelectorConfig{
-				{
-					Name:         "subjectScope",
-					Type:         "subjectRegex",
-					Pattern:      ".*",
-					CaptureGroup: 0,
+			want: &Config{
+				LogLevel: "info",
+				MailClient: MailClient{
+					Gmail: GmailClient{Enabled: true},
 				},
-			},
-			Callback: Callback{
-				Url:     "https://example.com/callback",
-				Method:  "POST",
-				Timeout: "24s",
-				Retries: 0,
+				MailSelectors: []MailSelectorConfig{
+					{Name: "subjectScope", Type: "subjectRegex", Pattern: ".*", CaptureGroup: 0},
+				},
+				Callback: goback.Config{
+					URL: "https://example.com/callback",
+				},
 				Attachments: AttachmentsConfig{
-					FieldPrefix: "attachment",
+					FieldPrefix:  "attachment",
+					MaxSize:      "",
+					MaxSizeBytes: 0,
+				},
+				Processing: Processing{
+					ProcessedAction: "markRead",
 				},
 			},
-			Processing: Processing{
-				ProcessedAction: "markRead",
-			},
+			wantErr: false,
 		},
-		wantErr: false,
-	}, {
-		name: "test unsupported http method",
-		args: args{
-			yamlBytes: []byte(`
-mailSelectors:
-- name: "subjectScope"
-  type: "subjectRegex"
-  pattern: ".*"
-callback:
-  url: "https://example.com/callback"
-  method: "invalid"`),
-		},
-		want:    nil,
-		wantErr: true,
-	}}
+	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := NewConfigFromYaml(tt.args.yamlBytes)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("NewConfigFromYaml() error = %v, wantErr %v", err, tt.wantErr)
+				t.Fatalf("NewConfigFromYaml() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErr {
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewConfigFromYaml() = %v, want %v", got, tt.want)
+			// Compare fields that are deterministic and relevant
+			if got.LogLevel != tt.want.LogLevel {
+				t.Errorf("LogLevel = %v, want %v", got.LogLevel, tt.want.LogLevel)
+			}
+			if !reflect.DeepEqual(got.MailClient, tt.want.MailClient) {
+				t.Errorf("MailClient = %v, want %v", got.MailClient, tt.want.MailClient)
+			}
+			if !reflect.DeepEqual(got.MailSelectors, tt.want.MailSelectors) {
+				t.Errorf("MailSelectors = %v, want %v", got.MailSelectors, tt.want.MailSelectors)
+			}
+			if got.Callback.URL != tt.want.Callback.URL || got.Callback.Method != tt.want.Callback.Method || got.Callback.Timeout != tt.want.Callback.Timeout {
+				t.Errorf("Callback = %+v, want URL=%s Method=%s Timeout=%s", got.Callback, tt.want.Callback.URL, tt.want.Callback.Method, tt.want.Callback.Timeout)
+			}
+			if !reflect.DeepEqual(got.Attachments, tt.want.Attachments) {
+				t.Errorf("Attachments = %+v, want %+v", got.Attachments, tt.want.Attachments)
+			}
+			if got.Processing.ProcessedAction != tt.want.Processing.ProcessedAction {
+				t.Errorf("ProcessedAction = %s, want %s", got.Processing.ProcessedAction, tt.want.Processing.ProcessedAction)
 			}
 		})
 	}

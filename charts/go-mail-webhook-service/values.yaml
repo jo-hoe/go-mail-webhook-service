@@ -1,5 +1,5 @@
 # Default values for go-mail-webhook-service.
-# Application config is defined via top-level keys (logLevel, mailSelectors, callback).
+# Application config is defined via top-level keys (logLevel, mailSelectors, callback, attachments).
 # The resulting ConfigMap renders to /go/config/config.yaml inside the container.
 
 image:
@@ -88,8 +88,8 @@ mailClient:
 
 # -- Application configuration (rendered into /go/config/config.yaml)
 logLevel: "info"
-# -- Provide empty defaults so templates resolve keys; override in your values when deploying
-# example
+
+# Examples for selectors (empty by default)
 # mailSelectors:
 #   - name: "OrderId"
 #     type: "subjectRegex"
@@ -100,26 +100,34 @@ logLevel: "info"
 #     pattern: "Total: \\$([0-9]+\\.[0-9]{2})"
 #     captureGroup: 1
 mailSelectors: []
-# -- define the callback configuration for the webhook
-# example:
+
+# -- Define the callback configuration for the webhook (maps to gohook.Config)
+# Example using Go text/template placeholders {{ .Name }}:
 # callback:
 #   url: "https://example.net/webhook"
 #   method: "POST"
 #   timeout: "24s"
-#   retries: 0
+#   maxRetries: 0
 #   headers:
-#     - key: "Content-Type"
-#       value: "application/json"
-#   queryParams:
-#     - key: "source"
-#       value: "mail"
+#     Content-Type: "application/json"
+#   query:
+#     source: "mail"
+#   # multipart:
+#   #   fields:
+#   #     note: "Processed order {{ .OrderId }}"
 #   body: |
 #     {
-#       "orderId": "${OrderId}",
-#       "amount": "${Amount}"
+#       "orderId": "{{ .OrderId }}",
+#       "amount": "{{ .Amount }}"
 #     }
-
 callback: {}
+
+# -- Attachment forwarding controls (added as multipart files at runtime)
+attachments:
+  enabled: false
+  fieldPrefix: "attachment"
+  maxSize: "0"
+
 processing:
   # -- Processed action defines how to mark mails after successful processing.
   # Supported values: "markRead" (default) or "delete"

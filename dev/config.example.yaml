@@ -5,18 +5,28 @@
 # Notes:
 # - The top-level structure is a single YAML object (one configuration).
 # - Supported selector types: "subjectRegex", "bodyRegex", "attachmentNameRegex", "senderRegex", "recipientRegex"
-# - Supported HTTP methods: GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS, TRACE
+# - Supported HTTP methods are standard HTTP verbs; when omitted, goback defaults:
+#     - POST if a body or multipart is configured
+#     - GET otherwise
 #
-# Placeholders:
-# - Use {{ .SelectorName }} in callback values (headers/queryParams/form/body) to reference a selector's extracted value.
+# Placeholders (Go text/template):
+# - Use {{ .SelectorName }} in callback values (headers/query/body/multipart.fields) to reference a selector's extracted value.
 # - Selector names must be alphanumeric only (^[0-9A-Za-z]+$).
 #
-# Callback schema:
-# - callback.headers: list of {key, value} where key allows alphanumeric and hyphens
-# - callback.queryParams: list of {key, value} where key is alphanumeric only
-# - callback.form: list of {key, value} (multipart/form-data) where key is alphanumeric only
-# - callback.attachments: configuration for forwarding email attachments (multipart file parts)
-# - callback.body: raw string body; you can build JSON yourself if desired
+# Callback schema (goback.Config):
+# - callback.headers: map of header key -> value (templated)
+# - callback.query: map of query key -> value (templated)
+# - callback.body: raw string body; build JSON yourself if desired (templated)
+# - callback.multipart.fields: map of form field key -> value (templated)
+# - callback.expectedStatus: optional list of acceptable status codes; when unset, defaults to treating 2xx/3xx as success in this service
+# - callback.maxRetries: number of retry attempts on errors/unexpected status (0 = single attempt)
+# - callback.backoff: delay between retries, K8s-style duration (e.g., "30s", "3m", "4d")
+#
+# Attachments behavior:
+# - Top-level attachments.* controls forwarding email attachments as multipart file parts.
+# - goback's multipart.files are assembled at runtime from incoming mail; YAML only configures fields.
+# - When attachments.enabled is true and an email has attachments, they will be added as file parts
+#   with field names "<fieldPrefix>_0", "<fieldPrefix>_1", ... honoring maxSize.
 #
 # Processing behavior:
 # - processing.processedAction controls how an email is marked as processed after a successful webhook call.
@@ -55,51 +65,44 @@ mailSelectors:
     pattern: "invoice-([0-9]+)\\.pdf"
     captureGroup: 1
 
+# Outgoing webhook (goback.Config)
 callback:
   # The webhook endpoint to call with extracted values
   # here we use host.docker.internal to access a service running on the host machine from inside the Docker container; adjust as needed for your environment
   url: "http://host.docker.internal:8080/api"
-  # HTTP method must be one of: GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS, TRACE
+  # HTTP method (optional). If omitted and body/multipart is set, defaults to POST; otherwise GET.
   method: "POST"
-  # Request timeout (Go duration format). Default is "24s" if omitted.
+  # Request timeout as a duration string, parsed by goback (supports k8s-style durations, e.g., "24s", "3m", "4d").
   timeout: "24s"
-  # Number of retry attempts for the callback. Must be >= 0. Default is 0.
-  retries: 0
+  # Number of retry attempts for the webhook. 0 = single attempt.
+  maxRetries: 0
 
-  # Structured sections
+  # Headers as a map
   headers:
-    # Header example: hyphens allowed in header names
-    - key: "X-Order-Id"
-      value: "{{ .OrderId }}"
-    # Often you may need to set a content type when using raw body
-    - key: "Content-Type"
-      value: "application/json"
+    X-Order-Id: "{{ .OrderId }}"
+    Content-Type: "application/json"
 
-  queryParams:
-    # Query parameter example (alphanumeric key)
-    - key: "fileNum"
-      value: "{{ .FileNum }}"
+  # Query parameters as a map
+  query:
+    fileNum: "{{ .FileNum }}"
 
-  form:
-    # Form field example (sent as multipart/form-data)
-    - key: "note"
-      value: "Processed order {{ .OrderId }}"
+  # Optional multipart form fields; files are added at runtime based on attachments.*
+  # multipart:
+  #   fields:
+  #     note: "Processed order {{ .OrderId }}"
 
-  # Forward attachments as multipart/form-data file parts
-  # Note: When attachments.enabled is true (or form has fields), the request will be multipart/form-data.
-  # If you also need to send a structured payload, include it as form fields.
-  attachments:
-    enabled: false
-    fieldPrefix: "attachment"      # Parts will be named like "attachment_0", "attachment_1", ...
-    maxSize: "0"                   # "0" or empty means no per-attachment size limit
-
-  # Raw body: build JSON yourself using placeholders if needed
-  # Note: Raw body is only used when not sending multipart/form-data (i.e., no form fields and no attachments).
+  # Raw body: build JSON yourself using placeholders if needed (ignored when multipart is set)
   body: |
     {
       "amount": "{{ .Amount }}",
       "senderDomain": "{{ .SenderDomain }}"
     }
+
+# Forward attachments as multipart/form-data file parts (added to callback.multipart.files at runtime)
+attachments:
+  enabled: false
+  fieldPrefix: "attachment"  # Parts will be named like "attachment_0", "attachment_1", ...
+  maxSize: "0"               # "0" or empty means no per-attachment size limit
 
 # Processing behavior: choose how to mark mails after successful processing
 processing:
@@ -118,9 +121,8 @@ processing:
 #
 # callback:
 #   url: "https://api.example.com/collect"
-#   method: "GET"
+#   # method omitted: will default to GET since no body/multipart is set
 #   timeout: "10s"
-#   retries: 1
-#   queryParams:
-#     - key: "url"
-#       value: "{{ .Link }}"
+#   maxRetries: 1
+#   query:
+#     url: "{{ .Link }}"

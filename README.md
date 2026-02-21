@@ -33,7 +33,7 @@ If you want to run the project without Docker, you can install [Golang](https://
 
 ## Configuration Example
 
-Create a file `dev/config.yaml` (use `dev/config.example.yaml` as a template). The application supports structured callback sections and selector-based placeholders.
+Create a file `dev/config.yaml` (use `dev/config.example.yaml` as a template). The application supports goback-based callback configuration and selector-based placeholders.
 
 Placeholders:
 
@@ -57,22 +57,15 @@ callback:
   url: "https://example.com/callback"
   method: "POST"
   timeout: "24s"
-  retries: 0
-
+  maxRetries: 0
   headers:
-    - key: "X-Order-Id"
-      value: "{{ .OrderId }}"
-    - key: "Content-Type"
-      value: "application/json"
-
-  queryParams:
-    - key: "campaign"
-      value: "winter"
-
-  form:
-    - key: "note"
-      value: "Processed order {{ .OrderId }}"
-
+    X-Order-Id: "{{ .OrderId }}"
+    Content-Type: "application/json"
+  query:
+    campaign: "winter"
+  # multipart:
+  #   fields:
+  #     note: "Processed order {{ .OrderId }}"
   body: |
     {
       "amount": "{{ .Amount }}"
@@ -81,9 +74,9 @@ callback:
 
 Notes:
 
-- headers keys allow alphanumeric and hyphens.
-- queryParams and form keys must be alphanumeric only.
-- body is a raw string; set Content-Type via headers when needed (e.g., application/json).
+- callback.headers is a map; values support templates and are canonicalized by Go's http package.
+- callback.query and callback.multipart.fields are maps; values support templates.
+- callback.body is a raw string; set Content-Type via headers when needed (e.g., application/json).
 
 ## How to use
 
