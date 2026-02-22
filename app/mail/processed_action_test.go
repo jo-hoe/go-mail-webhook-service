@@ -24,16 +24,16 @@ func TestNewProcessedAction_MarkReadAndDelete(t *testing.T) {
 		t.Fatalf("MarkReadCalls = %d, want 1", mock.MarkReadCalls)
 	}
 
-	// legacy: mark_read should map to markRead
-	a2, err := NewProcessedAction("mark_read")
+	// legacy: markRead should map to markRead
+	a2, err := NewProcessedAction("markRead")
 	if err != nil {
-		t.Fatalf("NewProcessedAction(mark_read) error = %v", err)
+		t.Fatalf("NewProcessedAction(markRead) error = %v", err)
 	}
 	if a2.Name() != "markRead" {
-		t.Fatalf("mark_read Name() = %s, want markRead", a2.Name())
+		t.Fatalf("markRead Name() = %s, want markRead", a2.Name())
 	}
 	if err := a2.Apply(ctx, mock, Mail{}); err != nil {
-		t.Fatalf("Apply(mark_read) error = %v", err)
+		t.Fatalf("Apply(markRead) error = %v", err)
 	}
 	if mock.MarkReadCalls != 2 {
 		t.Fatalf("MarkReadCalls = %d, want 2", mock.MarkReadCalls)

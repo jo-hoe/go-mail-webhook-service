@@ -10,7 +10,7 @@ import (
 type ProcessedAction interface {
 	// Apply performs the action (e.g., mark as read, delete) on the given mail using the provided service.
 	Apply(ctx context.Context, svc MailClientService, mail Mail) error
-	// Name returns the identifier of the action (e.g., "mark_read", "delete").
+	// Name returns the identifier of the action (e.g., "markRead", "delete").
 	Name() string
 }
 
@@ -32,11 +32,11 @@ func (a *deleteAction) Name() string { return "delete" }
 
 	// NewProcessedAction creates a ProcessedAction strategy from the provided name.
 	// Supported: "markRead" (default), "delete".
-	// Backward-compatible: accepts legacy "mark_read".
+	// Backward-compatible: accepts legacy "markRead".
 func NewProcessedAction(name string) (ProcessedAction, error) {
 	n := strings.ToLower(strings.TrimSpace(name))
 	switch n {
-	case "", "markread", "mark_read":
+	case "", "markRead", "markRead":
 		return &markReadAction{}, nil
 	case "delete":
 		return &deleteAction{}, nil

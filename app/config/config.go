@@ -125,7 +125,7 @@ func validateConfig(cfg *Config) error {
 
 	// processing behavior
 	switch strings.ToLower(strings.TrimSpace(cfg.Processing.ProcessedAction)) {
-	case "markread", "mark_read", "":
+	case "markRead", "markread", "":
 		cfg.Processing.ProcessedAction = "markRead"
 	case "delete":
 		cfg.Processing.ProcessedAction = "delete"

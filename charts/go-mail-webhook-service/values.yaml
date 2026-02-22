@@ -51,6 +51,8 @@ job:
   # -- schedule expression for scheduling of job (cron format)
   # default is beginning of every hour
   schedule: "0 * * * *"
+  # -- optional IANA time zone for the cron schedule (requires Kubernetes >= 1.27)
+  timeZone: ""
   # -- if set to true, a Job will be created with Helm hooks to run on initial deployment and when the ConfigMap changes
   executeOnStartUp: true
   # -- number of successful job history to keep
