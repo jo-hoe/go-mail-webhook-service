@@ -36,7 +36,7 @@ func (a *deleteAction) Name() string { return "delete" }
 func NewProcessedAction(name string) (ProcessedAction, error) {
 	n := strings.ToLower(strings.TrimSpace(name))
 	switch n {
-	case "", "markRead", "markRead":
+	case "", "markread", "markRead":
 		return &markReadAction{}, nil
 	case "delete":
 		return &deleteAction{}, nil
