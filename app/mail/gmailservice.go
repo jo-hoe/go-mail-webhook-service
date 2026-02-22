@@ -9,7 +9,7 @@ import (
 	"log/slog"
 	gomail "net/mail"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -52,7 +52,7 @@ func (service *GmailService) GetAllUnreadMail(context context.Context) ([]Mail, 
 	if err != nil {
 		var gErr *googleapi.Error
 		if errors.As(err, &gErr) && (gErr.Code == 401 || gErr.Code == 403) {
-			return result, fmt.Errorf("gmail API returned %d unauthorized/forbidden. The OAuth token at %s may be invalid, expired, or revoked. Re-generate the token using the CLI (cli/gmail) and ensure it is mounted at the configured credentialsPath. Original error: %v", gErr.Code, path.Join(service.credentialsPath, TokenFileName), err)
+			return result, fmt.Errorf("gmail API returned %d unauthorized/forbidden. The OAuth token at %s may be invalid, expired, or revoked. Re-generate the token using the CLI (cli/gmail) and ensure it is mounted at the configured credentialsPath. Original error: %v", gErr.Code, filepath.Join(service.credentialsPath, TokenFileName), err)
 		}
 		return result, fmt.Errorf("unable to retrieve messages from Gmail: %v", err)
 	}
@@ -95,7 +95,7 @@ func (service *GmailService) MarkMailAsRead(context context.Context, mail Mail) 
 	if err != nil {
 		var gErr *googleapi.Error
 		if errors.As(err, &gErr) && (gErr.Code == 401 || gErr.Code == 403) {
-			return fmt.Errorf("gmail API returned %d unauthorized/forbidden while marking message %s as read. The OAuth token at %s may be invalid, expired, or revoked. Re-generate the token using the CLI (cli/gmail) and ensure it is mounted at the configured credentialsPath. Original error: %v", gErr.Code, mail.Id, path.Join(service.credentialsPath, TokenFileName), err)
+			return fmt.Errorf("gmail API returned %d unauthorized/forbidden while marking message %s as read. The OAuth token at %s may be invalid, expired, or revoked. Re-generate the token using the CLI (cli/gmail) and ensure it is mounted at the configured credentialsPath. Original error: %v", gErr.Code, mail.Id, filepath.Join(service.credentialsPath, TokenFileName), err)
 		}
 		return fmt.Errorf("unable to mark message %s as read: %v", mail.Id, err)
 	}
@@ -114,7 +114,7 @@ func (service *GmailService) DeleteMail(context context.Context, mail Mail) erro
 	if err != nil {
 		var gErr *googleapi.Error
 		if errors.As(err, &gErr) && (gErr.Code == 401 || gErr.Code == 403) {
-			return fmt.Errorf("gmail API returned %d unauthorized/forbidden while deleting message %s. The OAuth token at %s may be invalid, expired, or revoked. Re-generate the token using the CLI (cli/gmail) and ensure it is mounted at the configured credentialsPath. Original error: %v", gErr.Code, mail.Id, path.Join(service.credentialsPath, TokenFileName), err)
+			return fmt.Errorf("gmail API returned %d unauthorized/forbidden while deleting message %s. The OAuth token at %s may be invalid, expired, or revoked. Re-generate the token using the CLI (cli/gmail) and ensure it is mounted at the configured credentialsPath. Original error: %v", gErr.Code, mail.Id, filepath.Join(service.credentialsPath, TokenFileName), err)
 		}
 		return fmt.Errorf("unable to delete message %s: %v", mail.Id, err)
 	}
@@ -265,9 +265,9 @@ func (service *GmailService) getGmailService(context context.Context, scope ...s
 }
 
 func GetGmailConfig(credentialsPath string, scope ...string) (*oauth2.Config, error) {
-	b, err := os.ReadFile(path.Join(credentialsPath, CredentialsFileName))
+	b, err := os.ReadFile(filepath.Join(credentialsPath, CredentialsFileName)) // #nosec G304 -- reading a fixed filename within a configured credentials directory
 	if err != nil {
-		return nil, fmt.Errorf("failed to read Gmail client credentials at %s: %w", path.Join(credentialsPath, CredentialsFileName), err)
+		return nil, fmt.Errorf("failed to read Gmail client credentials at %s: %w", filepath.Join(credentialsPath, CredentialsFileName), err)
 	}
 
 	// If modifying these scopes, delete your previously saved token.json.
@@ -276,7 +276,7 @@ func GetGmailConfig(credentialsPath string, scope ...string) (*oauth2.Config, er
 
 // Retrieves a token from a local file.
 func tokenFromFile(filePath string) (*oauth2.Token, error) {
-	file, err := os.Open(filePath)
+	file, err := os.Open(filePath) // #nosec G304 -- file path is built from a configured directory and fixed filename (TokenFileName)
 	if err != nil {
 		return nil, err
 	}
@@ -326,7 +326,7 @@ func (s *tokenSavingSource) Token() (*oauth2.Token, error) {
 
 // getTokenSource returns a TokenSource that auto-refreshes and saves refreshed tokens back to request.token
 func (service *GmailService) getTokenSource(ctx context.Context, config *oauth2.Config) (oauth2.TokenSource, error) {
-	tokenFilePath := path.Join(service.credentialsPath, TokenFileName)
+	tokenFilePath := filepath.Join(service.credentialsPath, TokenFileName)
 	token, err := tokenFromFile(tokenFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read OAuth token from %s: %w. If the file is missing or corrupted, re-generate it using the CLI tool (cli/gmail)", tokenFilePath, err)

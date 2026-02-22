@@ -6,7 +6,8 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"path"
+	"path/filepath"
+	"time"
 
 	"github.com/jo-hoe/go-mail-webhook-service/app/mail"
 	"golang.org/x/oauth2"
@@ -55,22 +56,29 @@ func getTokenFromWeb(context context.Context, pathToClientCredentials string, co
 			return
 		}
 
-		err = saveToken(path.Join(pathToClientCredentials, mail.TokenFileName), token)
+		err = saveToken(filepath.Join(pathToClientCredentials, mail.TokenFileName), token)
 		if err != nil {
 			slog.Error("failed to save token", "error", err)
 			return
 		}
 	})
-	err := http.ListenAndServe(":8080", nil)
-	if err != nil {
-		panic(err)
+	srv := &http.Server{
+		Addr:              ":8080",
+		Handler:           nil, // default mux
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		slog.Error("HTTP server error", "error", err)
 	}
 }
 
 // Saves a token to a file path.
 func saveToken(path string, token *oauth2.Token) error {
 	slog.Info("saving credential file", "path", path)
-	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+	file, err := os.OpenFile(filepath.Clean(path), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600) // #nosec G304 -- writing to fixed filename joined under user-provided directory
 	if err != nil {
 		return err
 	}

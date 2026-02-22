@@ -62,7 +62,7 @@ func TestIntegrationGmailService_getGmailService(t *testing.T) {
 }
 
 func copyFile(src, dst string, t *testing.T) {
-	inputFile, err := os.Open(src)
+	inputFile, err := os.Open(filepath.Clean(src)) // #nosec G304 -- test helper reading a known test fixture path
 	if err != nil {
 		t.Errorf("Error: %v", err)
 	}

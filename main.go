@@ -3,16 +3,16 @@ package main
 import (
 	"log/slog"
 	"os"
-	"path"
+	"path/filepath"
 
 	"github.com/jo-hoe/go-mail-webhook-service/app/config"
 	"github.com/jo-hoe/go-mail-webhook-service/app/webhook"
 )
 
-var configFileName = path.Join("config", "config.yaml")
+var configFileName = filepath.Join("config", "config.yaml")
 
 func getConfig() (*config.Config, error) {
-	yamlFile, err := os.ReadFile(configFileName)
+	yamlFile, err := os.ReadFile(filepath.Clean(configFileName)) // #nosec G304 -- reading a fixed config file path
 	if err != nil {
 		return nil, err
 	}
