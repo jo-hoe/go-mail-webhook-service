@@ -5,7 +5,7 @@ go 1.26.0
 require (
 	github.com/jo-hoe/goback v0.0.0-20260221133900-168dc97d2f35
 	golang.org/x/oauth2 v0.35.0
-	google.golang.org/api v0.266.0
+	google.golang.org/api v0.267.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
