@@ -15,7 +15,7 @@ A Helm chart for deploying go-mail-webhook-service (polls mail and triggers webh
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` |  |
-| attachments | object | `{"enabled":false,"fieldPrefix":"attachment","maxSize":"0"}` | Attachment forwarding controls (added as multipart files at runtime) |
+| attachments | object | `{"strategy":"multipartBundle","fieldName":"attachment_{{index}}","maxSize":"0"}` | Attachment forwarding controls (added as multipart files at runtime). Strategy options: ignore, multipartBundle, multipartPerAttachment. fieldName supports templating variables {{index}}, {{filename}}, {{basename}}, {{ext}}, {{contentType}}. |
 | callback | object | `{}` | Define the callback configuration for the webhook (maps to gohook.Config) Example using Go text/template placeholders {{ .Name }}: callback:   url: "https://example.net/webhook"   method: "POST"   timeout: "24s"   maxRetries: 0   headers:     Content-Type: "application/json"   query:     source: "mail"   # multipart:   #   fields:   #     note: "Processed order {{ .OrderId }}"   body: |     {       "orderId": "{{ .OrderId }}",       "amount": "{{ .Amount }}"     } |
 | env | list | `[]` | Environment variables for the container |
 | extraVolumeMounts | list | `[]` |  |

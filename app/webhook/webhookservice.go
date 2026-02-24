@@ -1,12 +1,16 @@
 package webhook
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log/slog"
+	"mime"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"sync"
+	"text/template"
 
 	"github.com/jo-hoe/goback"
 
@@ -89,20 +93,16 @@ func processMail(ctx context.Context, client *http.Client, mailService mail.Mail
 	m mail.Mail, cfg *config.Config, selected map[string]string, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	hookCfg := buildHookConfig(cfg, m)
-	exec, err := goback.NewCallbackExecutor(hookCfg, client)
-	if err != nil {
-		slog.Error("could not create webhook executor", "mailId", m.Id, "error", err)
-		return
+	var err error
+	switch cfg.Attachments.Strategy {
+	case config.StrategyMultipartPerAttachment:
+		err = handlePerAttachment(ctx, client, cfg, m, selected)
+	default: // StrategyIgnore and StrategyMultipartBundle are handled via buildHookConfig
+		err = handleBundleOrIgnore(ctx, client, cfg, m, selected)
 	}
-
-	resp, _, err := exec.Execute(ctx, goback.TemplateData{Values: selected})
 	if err != nil {
-		slog.Error("webhook execution failed", "mailId", m.Id, "error", err)
+		// Errors are already logged inside helpers; do not apply processed action.
 		return
-	}
-	if resp != nil {
-		slog.Info("request success", "mailId", m.Id, "status_code", resp.StatusCode, "method", hookCfg.Method, "url", hookCfg.URL)
 	}
 
 	// Success: apply processed action and log success
@@ -117,6 +117,58 @@ func processMail(ctx context.Context, client *http.Client, mailService mail.Mail
 	slog.Info("successfully processed mail", "mailId", m.Id, "subject", m.Subject, "body_prefix", getPrefix(m.Body, 100))
 }
 
+func handleBundleOrIgnore(ctx context.Context, client *http.Client, cfg *config.Config, m mail.Mail, selected map[string]string) error {
+	hookCfg := buildHookConfig(cfg, m, selected)
+	return sendRequest(ctx, client, hookCfg, selected, m)
+}
+
+func handlePerAttachment(ctx context.Context, client *http.Client, cfg *config.Config, m mail.Mail, selected map[string]string) error {
+	valid := filterAttachmentsBySize(m.Attachments, cfg.Attachments.MaxSizeBytes)
+	// If there are no attachments, fall back to a single request (no files)
+	if len(valid) == 0 {
+		hookCfg := buildHookConfig(cfg, m, selected)
+		return sendRequest(ctx, client, hookCfg, selected, m)
+	}
+
+	for i, a := range valid {
+		h := cfg.Callback
+		if h.Multipart == nil {
+			h.Multipart = &goback.Multipart{Fields: nil, Files: nil}
+		}
+		field := renderFieldName(cfg.Attachments.FieldName, i, a.Name, selected)
+		filename := filepath.Base(a.Name)
+		if filename == "" {
+			filename = field
+		}
+		h.Multipart.Files = []goback.ByteFile{{
+			Field:    field,
+			FileName: filename,
+			Data:     a.Content,
+		}}
+		if err := sendRequest(ctx, client, h, selected, m); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func sendRequest(ctx context.Context, client *http.Client, h goback.Config, selected map[string]string, m mail.Mail) error {
+	exec, err := goback.NewCallbackExecutor(h, client)
+	if err != nil {
+		slog.Error("could not create webhook executor", "mailId", m.Id, "error", err)
+		return err
+	}
+	resp, _, err := exec.Execute(ctx, goback.TemplateData{Values: selected})
+	if err != nil {
+		slog.Error("webhook execution failed", "mailId", m.Id, "error", err)
+		return err
+	}
+	if resp != nil {
+		slog.Info("request success", "mailId", m.Id, "status_code", resp.StatusCode, "method", h.Method, "url", h.URL)
+	}
+	return nil
+}
+
 func getPrefix(input string, prefixLength int) string {
 	if len(input) > prefixLength {
 		return fmt.Sprintf("%s...", input[0:prefixLength])
@@ -124,23 +176,21 @@ func getPrefix(input string, prefixLength int) string {
 	return input
 }
 
-	// buildHookConfig starts from cfg.Callback and augments it with runtime request files.
-	// When no ExpectedStatus is configured, defaults to 2xx/3xx as success to mirror prior behavior.
-func buildHookConfig(cfg *config.Config, m mail.Mail) goback.Config {
+// buildHookConfig starts from cfg.Callback and augments it with runtime request files.
+// When no ExpectedStatus is configured, defaults to 2xx/3xx as success to mirror prior behavior.
+func buildHookConfig(cfg *config.Config, m mail.Mail, selected map[string]string) goback.Config {
 	// Start from the configured hook
 	h := cfg.Callback
 
-	// Ensure multipart exists when we need to attach fields or files
-	if h.Multipart == nil && (cfg.Attachments.Enabled && len(m.Attachments) > 0) {
-		h.Multipart = &goback.Multipart{
-			Fields: nil,
-			Files:  nil,
+	// Bundle attachments into a single request if configured
+	if cfg.Attachments.Strategy == config.StrategyMultipartBundle && len(m.Attachments) > 0 {
+		if h.Multipart == nil {
+			h.Multipart = &goback.Multipart{
+				Fields: nil,
+				Files:  nil,
+			}
 		}
-	}
-
-	// Append multipart request files if enabled
-	if h.Multipart != nil && cfg.Attachments.Enabled && len(m.Attachments) > 0 {
-		h.Multipart.Files = append(h.Multipart.Files, buildRequestFiles(cfg, m)...)
+		h.Multipart.Files = append(h.Multipart.Files, buildRequestFiles(cfg, m, selected)...)
 	}
 
 	// Apply a default ExpectedStatus if not set
@@ -151,16 +201,12 @@ func buildHookConfig(cfg *config.Config, m mail.Mail) goback.Config {
 	return h
 }
 
-func buildRequestFiles(cfg *config.Config, m mail.Mail) []goback.ByteFile {
-	if !cfg.Attachments.Enabled || len(m.Attachments) == 0 {
+func buildRequestFiles(cfg *config.Config, m mail.Mail, selected map[string]string) []goback.ByteFile {
+	if len(m.Attachments) == 0 {
 		return nil
 	}
-	prefix := cfg.Attachments.FieldPrefix
-	if prefix == "" {
-		// Use a REST-oriented default field prefix for multipart files
-		prefix = "file"
-	}
 	maxSize := cfg.Attachments.MaxSizeBytes
+	fieldTpl := cfg.Attachments.FieldName
 
 	files := make([]goback.ByteFile, 0, len(m.Attachments))
 	for i, a := range m.Attachments {
@@ -168,19 +214,73 @@ func buildRequestFiles(cfg *config.Config, m mail.Mail) []goback.ByteFile {
 			slog.Warn("skipping file due to size limit", "name", a.Name, "size_bytes", len(a.Content), "max_bytes", maxSize)
 			continue
 		}
-		field := fmt.Sprintf("%s_%d", prefix, i)
-		name := a.Name
+		field := renderFieldName(fieldTpl, i, a.Name, selected)
+		name := filepath.Base(a.Name)
 		if name == "" {
 			name = field
 		}
-		name = filepath.Base(name)
 		files = append(files, goback.ByteFile{
-            Field:    field,
-            FileName: name,
-            Data:     a.Content,
-        })
+			Field:    field,
+			FileName: name,
+			Data:     a.Content,
+		})
 	}
 	return files
+}
+
+func filterAttachmentsBySize(atts []mail.Attachment, max int64) []mail.Attachment {
+	if max <= 0 {
+		return atts
+	}
+	res := make([]mail.Attachment, 0, len(atts))
+	for _, a := range atts {
+		if int64(len(a.Content)) > max {
+			slog.Warn("skipping file due to size limit", "name", a.Name, "size_bytes", len(a.Content), "max_bytes", max)
+			continue
+		}
+		res = append(res, a)
+	}
+	return res
+}
+
+func renderFieldName(tpl string, idx int, filename string, selected map[string]string) string {
+	if strings.TrimSpace(tpl) == "" {
+		return fmt.Sprintf("attachment_%d", idx)
+	}
+	base := filepath.Base(filename)
+	ext := filepath.Ext(base)
+	basename := strings.TrimSuffix(base, ext)
+	ct := mime.TypeByExtension(ext)
+
+	// Build template data: include selector values at top-level and attachment info both top-level and namespaced.
+	data := map[string]any{
+		"index":       idx,
+		"filename":    base,
+		"basename":    basename,
+		"ext":         ext,
+		"contentType": ct,
+		"Attachment": map[string]any{
+			"index":       idx,
+			"filename":    base,
+			"basename":    basename,
+			"ext":         ext,
+			"contentType": ct,
+		},
+	}
+	for k, v := range selected {
+		// Expose selector values at top-level, matching how other templates access them.
+		data[k] = v
+	}
+
+	t, err := template.New("fieldName").Parse(tpl)
+	if err != nil {
+		return tpl
+	}
+	var b bytes.Buffer
+	if err := t.Execute(&b, data); err != nil {
+		return tpl
+	}
+	return b.String()
 }
 
 func successStatusCodes() []int {

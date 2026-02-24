@@ -55,7 +55,8 @@ processing:
 					Timeout: "8s",
 				},
 				Attachments: AttachmentsConfig{
-					FieldPrefix:  "attachment",
+					Strategy:     "multipartBundle",
+					FieldName:    "attachment",
 					MaxSize:      "",
 					MaxSizeBytes: 0,
 				},
@@ -97,7 +98,8 @@ callback:
 					URL: "https://example.com/callback",
 				},
 				Attachments: AttachmentsConfig{
-					FieldPrefix:  "attachment",
+					Strategy:     "multipartBundle",
+					FieldName:    "attachment",
 					MaxSize:      "",
 					MaxSizeBytes: 0,
 				},

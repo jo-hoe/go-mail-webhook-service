@@ -12,7 +12,6 @@ import (
 // Config is the application configuration.
 //   - Callback contains the goback.Config used to execute webhooks (URL, method, headers, query, body, multipart, etc.).
 //   - Attachments controls forwarding email attachments into the webhook's multipart request.
-//     Note: goback's Multipart.Files are populated at runtime from incoming mail attachments; the YAML only configures Fields.
 type Config struct {
 	LogLevel      string               `yaml:"logLevel"`
 	MailClient    MailClient           `yaml:"mailClient"`
@@ -51,14 +50,24 @@ type Processing struct {
 	ProcessedAction string `yaml:"processedAction"`
 }
 
+ // AttachmentStrategy is a strongly-typed enum for attachment handling behavior.
+type AttachmentStrategy string
+
+const (
+	StrategyIgnore                 AttachmentStrategy = "ignore"
+	StrategyMultipartBundle        AttachmentStrategy = "multipartBundle"
+	StrategyMultipartPerAttachment AttachmentStrategy = "multipartPerAttachment"
+)
+
 // AttachmentsConfig controls forwarding of attachments in webhook requests.
-// FieldPrefix is used to name multipart file fields like "<prefix>_0", "<prefix>_1", ...
+ // Strategy defines how to handle attachments: "ignore", "multipartBundle", or "multipartPerAttachment".
+// FieldName is the multipart form field name for files. It can be a static string or a Go text/template.
 // MaxSize is optional per-attachment size limit (e.g., "200Mi", "1MiB", "500MB"); empty or "0" means no limit.
 type AttachmentsConfig struct {
-	Enabled      bool   `yaml:"enabled"`
-	FieldPrefix  string `yaml:"fieldPrefix"`
-	MaxSize      string `yaml:"maxSize"`
-	MaxSizeBytes int64  `yaml:"-"`
+	Strategy     AttachmentStrategy `yaml:"strategy"`
+	FieldName    string             `yaml:"fieldName"`
+	MaxSize      string             `yaml:"maxSize"`
+	MaxSizeBytes int64              `yaml:"-"`
 }
 
 func NewConfigFromYaml(yamlBytes []byte) (*Config, error) {
@@ -91,8 +100,11 @@ func setDefaults(cfg *Config) {
 	}
 
 	// Attachments defaults
-	if strings.TrimSpace(cfg.Attachments.FieldPrefix) == "" {
-		cfg.Attachments.FieldPrefix = "attachment"
+	if strings.TrimSpace(cfg.Attachments.FieldName) == "" {
+		cfg.Attachments.FieldName = "attachment"
+	}
+	if strings.TrimSpace(string(cfg.Attachments.Strategy)) == "" {
+		cfg.Attachments.Strategy = StrategyMultipartBundle
 	}
 }
 
@@ -173,13 +185,24 @@ func validateMailSelectorConfig(sel *MailSelectorConfig) error {
 }
 
 func validateAttachments(att *AttachmentsConfig) error {
-	// FieldPrefix must be alphanumeric if provided
-	if att.FieldPrefix != "" {
-		nameRegex := regexp.MustCompile("^[0-9A-Za-z]+$")
-		if !nameRegex.MatchString(att.FieldPrefix) {
-			return fmt.Errorf("attachments.fieldPrefix must match ^[0-9A-Za-z]+$ (got '%s')", att.FieldPrefix)
-		}
+	// Normalize and validate strategy
+	switch strings.ToLower(strings.TrimSpace(string(att.Strategy))) {
+	case "ignore":
+		att.Strategy = StrategyIgnore
+	case "multipartbundle", "":
+		att.Strategy = StrategyMultipartBundle
+	case "multipartperattachment":
+		att.Strategy = StrategyMultipartPerAttachment
+	default:
+		return fmt.Errorf("attachments.strategy invalid '%s' (supported: ignore, multipartBundle, multipartPerAttachment)", string(att.Strategy))
 	}
+
+	// FieldName: allow static or templated names; no strict validation needed.
+	att.FieldName = strings.TrimSpace(att.FieldName)
+	if att.FieldName == "" {
+		att.FieldName = "attachment"
+	}
+
 	// Parse MaxSize (string) into bytes; empty or "0" means no limit
 	sizeStr := strings.TrimSpace(att.MaxSize)
 	if sizeStr == "" || sizeStr == "0" {

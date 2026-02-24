@@ -125,9 +125,12 @@ mailSelectors: []
 callback: {}
 
 # -- Attachment forwarding controls (added as multipart files at runtime)
+# strategy: "ignore" | "multipartBundle" | "multipartPerAttachment"
+# fieldName: static or templated multipart field name (supports {{index}}, {{filename}}, {{basename}}, {{ext}}, {{contentType}})
+# maxSize: per-attachment size limit (e.g., "200Mi"); "0" or empty means no limit
 attachments:
-  enabled: false
-  fieldPrefix: "attachment"
+  strategy: "multipartBundle"
+  fieldName: "attachment_{{index}}"
   maxSize: "0"
 
 processing:

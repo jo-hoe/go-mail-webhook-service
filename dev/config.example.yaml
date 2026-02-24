@@ -23,10 +23,18 @@
 # - callback.backoff: delay between retries, K8s-style duration (e.g., "30s", "3m", "4d")
 #
 # Attachments behavior:
-# - Top-level attachments.* controls forwarding email attachments as multipart file parts.
-# - goback's multipart.files are assembled at runtime from incoming mail; YAML only configures fields.
-# - When attachments.enabled is true and an email has attachments, they will be added as file parts
-#   with field names "<fieldPrefix>_0", "<fieldPrefix>_1", ... honoring maxSize.
+# - Top-level attachments.* controls forwarding email attachments.
+# - Strategy options:
+#     - "ignore": do not include attachments
+#     - "multipartBundle": send a single request that includes all qualifying attachments as multipart files
+#     - "multipartPerAttachment": send one request per qualifying attachment (multipart per request)
+# - Field naming:
+#     - attachments.fieldName applies to all strategies
+#     - It can be a static value (e.g., "attachment") or a Go text/template
+#     - Supported template variables: {{index}} (0-based), {{filename}}, {{basename}}, {{ext}}, {{contentType}}
+#     - Example: "file_{{index}}__{{basename}}"
+# - Size limit:
+#     - attachments.maxSize is a per-attachment limit (e.g., "200Mi"); "0" or empty means no limit
 #
 # Processing behavior:
 # - processing.processedAction controls how an email is marked as processed after a successful webhook call.
@@ -98,11 +106,11 @@ callback:
       "senderDomain": "{{ .SenderDomain }}"
     }
 
-# Forward attachments as multipart/form-data file parts (added to callback.multipart.files at runtime)
+# Forward attachments (added to callback.multipart.files at runtime according to the selected strategy)
 attachments:
-  enabled: false
-  fieldPrefix: "attachment"  # Parts will be named like "attachment_0", "attachment_1", ...
-  maxSize: "0"               # "0" or empty means no per-attachment size limit
+  strategy: "multipartBundle"        # "ignore" | "multipartBundle" | "multipartPerAttachment"
+  fieldName: "attachment_{{index}}"  # static or templated field name (supports {{index}}, {{filename}}, {{basename}}, {{ext}}, {{contentType}}); {{index}} recommended for uniqueness in multipartBundle
+  maxSize: "0"              # "0" or empty means no per-attachment size limit
 
 # Processing behavior: choose how to mark mails after successful processing
 processing:
