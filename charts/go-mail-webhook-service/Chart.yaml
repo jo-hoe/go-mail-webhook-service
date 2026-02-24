@@ -2,8 +2,8 @@ apiVersion: v2
 name: go-mail-webhook-service
 description: A Helm chart for deploying go-mail-webhook-service (polls mail and triggers webhooks)
 type: application
-version: 7.0.0
-appVersion: "7.0.0"
+version: 7.0.1
+appVersion: "7.0.1"
 home: https://github.com/jo-hoe/go-mail-webhook-service
 sources:
   - https://github.com/jo-hoe/go-mail-webhook-service
