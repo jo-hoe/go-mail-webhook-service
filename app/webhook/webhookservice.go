@@ -94,9 +94,16 @@ func processMail(ctx context.Context, client *http.Client, mailService mail.Mail
 	defer wg.Done()
 
 	strategy := NewAttachmentDeliveryStrategy(cfg.Attachments.Strategy)
-	if err := strategy.Deliver(ctx, client, cfg, m, selected); err != nil {
-		// Errors are already logged inside strategies; do not apply processed action.
-		return
+	base := cfg.Callback
+	requests := strategy.BuildRequests(base, cfg, m, selected)
+	for _, h := range requests {
+		if len(h.ExpectedStatus) == 0 {
+			h.ExpectedStatus = successStatusCodes()
+		}
+		if err := sendRequest(ctx, client, h, selected, m); err != nil {
+			// Errors are logged in sendRequest; do not apply processed action.
+			return
+		}
 	}
 
 	// Success: apply processed action and log success

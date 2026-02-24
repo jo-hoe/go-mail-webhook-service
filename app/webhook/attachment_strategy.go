@@ -1,8 +1,7 @@
 package webhook
 
 import (
-	"context"
-	"net/http"
+	"path/filepath"
 
 	"github.com/jo-hoe/goback"
 
@@ -10,9 +9,12 @@ import (
 	"github.com/jo-hoe/go-mail-webhook-service/app/mail"
 )
 
-// AttachmentDeliveryStrategy defines how to deliver attachments for a mail.
+// AttachmentDeliveryStrategy defines how to modify the base webhook request(s) for attachments.
+// It does NOT send the requests; it only returns the concrete request(s) to be sent.
 type AttachmentDeliveryStrategy interface {
-	Deliver(ctx context.Context, client *http.Client, cfg *config.Config, m mail.Mail, selected map[string]string) error
+	// BuildRequests receives a base request (cfg.Callback) and returns one or more concrete requests
+	// to be sent by the caller (webhookservice). This preserves separation of concerns.
+	BuildRequests(base goback.Config, cfg *config.Config, m mail.Mail, selected map[string]string) []goback.Config
 }
 
 // NewAttachmentDeliveryStrategy creates a concrete strategy from config.
@@ -29,57 +31,53 @@ func NewAttachmentDeliveryStrategy(s config.AttachmentStrategy) AttachmentDelive
 	}
 }
 
-// ignoreStrategy sends a single request without attachments.
+// ignoreStrategy returns the base request as-is (no attachments).
 type ignoreStrategy struct{}
 
-func (st *ignoreStrategy) Deliver(ctx context.Context, client *http.Client, cfg *config.Config, m mail.Mail, selected map[string]string) error {
-	h := cfg.Callback
-	// Ensure default expected status range if unset
-	if len(h.ExpectedStatus) == 0 {
-		h.ExpectedStatus = successStatusCodes()
-	}
-	return sendRequest(ctx, client, h, selected, m)
+func (st *ignoreStrategy) BuildRequests(base goback.Config, _ *config.Config, _ mail.Mail, _ map[string]string) []goback.Config {
+	return []goback.Config{base}
 }
 
-// multipartBundleStrategy sends one request with all qualifying attachments as multipart files.
+// multipartBundleStrategy returns a single request with all qualifying attachments as multipart files.
 type multipartBundleStrategy struct{}
 
-func (st *multipartBundleStrategy) Deliver(ctx context.Context, client *http.Client, cfg *config.Config, m mail.Mail, selected map[string]string) error {
-	h := cfg.Callback
+func (st *multipartBundleStrategy) BuildRequests(base goback.Config, cfg *config.Config, m mail.Mail, selected map[string]string) []goback.Config {
+	h := base
 	if len(m.Attachments) > 0 {
 		if h.Multipart == nil {
 			h.Multipart = &goback.Multipart{Fields: nil, Files: nil}
 		}
 		h.Multipart.Files = append(h.Multipart.Files, buildRequestFiles(cfg, m, selected)...)
 	}
-	// Ensure default expected status range if unset
-	if len(h.ExpectedStatus) == 0 {
-		h.ExpectedStatus = successStatusCodes()
-	}
-	return sendRequest(ctx, client, h, selected, m)
+	return []goback.Config{h}
 }
 
-// multipartPerAttachmentStrategy sends one request per qualifying attachment.
+// multipartPerAttachmentStrategy returns one request per qualifying attachment (single file each).
+// If no attachments qualify, it returns the base request unchanged.
 type multipartPerAttachmentStrategy struct{}
 
-func (st *multipartPerAttachmentStrategy) Deliver(ctx context.Context, client *http.Client, cfg *config.Config, m mail.Mail, selected map[string]string) error {
+func (st *multipartPerAttachmentStrategy) BuildRequests(base goback.Config, cfg *config.Config, m mail.Mail, selected map[string]string) []goback.Config {
 	valid := filterAttachmentsBySize(m.Attachments, cfg.Attachments.MaxSizeBytes)
-	// No attachments: send a single request without files
 	if len(valid) == 0 {
-		h := cfg.Callback
-		if len(h.ExpectedStatus) == 0 {
-			h.ExpectedStatus = successStatusCodes()
-		}
-		return sendRequest(ctx, client, h, selected, m)
+		return []goback.Config{base}
 	}
 
+	requests := make([]goback.Config, 0, len(valid))
 	for i, a := range valid {
-		h := cfg.Callback
-		if h.Multipart == nil {
-			h.Multipart = &goback.Multipart{Fields: nil, Files: nil}
+		h := base
+		var fields map[string]string
+		if base.Multipart != nil {
+			fields = base.Multipart.Fields
 		}
+		if h.Multipart == nil {
+			h.Multipart = &goback.Multipart{Fields: fields, Files: nil}
+		} else {
+			// ensure we don't mutate shared slice
+			h.Multipart = &goback.Multipart{Fields: fields, Files: nil}
+		}
+
 		field := renderFieldName(cfg.Attachments.FieldName, i, a.Name, selected)
-		filename := a.Name
+		filename := filepath.Base(a.Name)
 		if filename == "" {
 			filename = field
 		}
@@ -88,12 +86,7 @@ func (st *multipartPerAttachmentStrategy) Deliver(ctx context.Context, client *h
 			FileName: filename,
 			Data:     a.Content,
 		}}
-		if len(h.ExpectedStatus) == 0 {
-			h.ExpectedStatus = successStatusCodes()
-		}
-		if err := sendRequest(ctx, client, h, selected, m); err != nil {
-			return err
-		}
+		requests = append(requests, h)
 	}
-	return nil
+	return requests
 }
