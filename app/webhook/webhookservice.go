@@ -124,8 +124,8 @@ func getPrefix(input string, prefixLength int) string {
 	return input
 }
 
-// buildHookConfig starts from cfg.Callback and augments it with runtime attachment files.
-// When no ExpectedStatus is configured, defaults to 2xx/3xx as success to mirror prior behavior.
+	// buildHookConfig starts from cfg.Callback and augments it with runtime request files.
+	// When no ExpectedStatus is configured, defaults to 2xx/3xx as success to mirror prior behavior.
 func buildHookConfig(cfg *config.Config, m mail.Mail) goback.Config {
 	// Start from the configured hook
 	h := cfg.Callback
@@ -138,9 +138,9 @@ func buildHookConfig(cfg *config.Config, m mail.Mail) goback.Config {
 		}
 	}
 
-	// Append files for attachments if enabled
+	// Append multipart request files if enabled
 	if h.Multipart != nil && cfg.Attachments.Enabled && len(m.Attachments) > 0 {
-		h.Multipart.Files = append(h.Multipart.Files, buildAttachmentFiles(cfg, m)...)
+		h.Multipart.Files = append(h.Multipart.Files, buildRequestFiles(cfg, m)...)
 	}
 
 	// Apply a default ExpectedStatus if not set
@@ -151,20 +151,21 @@ func buildHookConfig(cfg *config.Config, m mail.Mail) goback.Config {
 	return h
 }
 
-func buildAttachmentFiles(cfg *config.Config, m mail.Mail) []goback.ByteFile {
+func buildRequestFiles(cfg *config.Config, m mail.Mail) []goback.ByteFile {
 	if !cfg.Attachments.Enabled || len(m.Attachments) == 0 {
 		return nil
 	}
 	prefix := cfg.Attachments.FieldPrefix
 	if prefix == "" {
-		prefix = "attachment"
+		// Use a REST-oriented default field prefix for multipart files
+		prefix = "file"
 	}
 	maxSize := cfg.Attachments.MaxSizeBytes
 
 	files := make([]goback.ByteFile, 0, len(m.Attachments))
 	for i, a := range m.Attachments {
 		if maxSize > 0 && int64(len(a.Content)) > maxSize {
-			slog.Warn("skipping attachment due to size limit", "name", a.Name, "size_bytes", len(a.Content), "max_bytes", maxSize)
+			slog.Warn("skipping file due to size limit", "name", a.Name, "size_bytes", len(a.Content), "max_bytes", maxSize)
 			continue
 		}
 		field := fmt.Sprintf("%s_%d", prefix, i)
