@@ -93,15 +93,9 @@ func processMail(ctx context.Context, client *http.Client, mailService mail.Mail
 	m mail.Mail, cfg *config.Config, selected map[string]string, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	var err error
-	switch cfg.Attachments.Strategy {
-	case config.StrategyMultipartPerAttachment:
-		err = handlePerAttachment(ctx, client, cfg, m, selected)
-	default: // StrategyIgnore and StrategyMultipartBundle are handled via buildHookConfig
-		err = handleBundleOrIgnore(ctx, client, cfg, m, selected)
-	}
-	if err != nil {
-		// Errors are already logged inside helpers; do not apply processed action.
+	strategy := NewAttachmentDeliveryStrategy(cfg.Attachments.Strategy)
+	if err := strategy.Deliver(ctx, client, cfg, m, selected); err != nil {
+		// Errors are already logged inside strategies; do not apply processed action.
 		return
 	}
 
@@ -117,40 +111,7 @@ func processMail(ctx context.Context, client *http.Client, mailService mail.Mail
 	slog.Info("successfully processed mail", "mailId", m.Id, "subject", m.Subject, "body_prefix", getPrefix(m.Body, 100))
 }
 
-func handleBundleOrIgnore(ctx context.Context, client *http.Client, cfg *config.Config, m mail.Mail, selected map[string]string) error {
-	hookCfg := buildHookConfig(cfg, m, selected)
-	return sendRequest(ctx, client, hookCfg, selected, m)
-}
 
-func handlePerAttachment(ctx context.Context, client *http.Client, cfg *config.Config, m mail.Mail, selected map[string]string) error {
-	valid := filterAttachmentsBySize(m.Attachments, cfg.Attachments.MaxSizeBytes)
-	// If there are no attachments, fall back to a single request (no files)
-	if len(valid) == 0 {
-		hookCfg := buildHookConfig(cfg, m, selected)
-		return sendRequest(ctx, client, hookCfg, selected, m)
-	}
-
-	for i, a := range valid {
-		h := cfg.Callback
-		if h.Multipart == nil {
-			h.Multipart = &goback.Multipart{Fields: nil, Files: nil}
-		}
-		field := renderFieldName(cfg.Attachments.FieldName, i, a.Name, selected)
-		filename := filepath.Base(a.Name)
-		if filename == "" {
-			filename = field
-		}
-		h.Multipart.Files = []goback.ByteFile{{
-			Field:    field,
-			FileName: filename,
-			Data:     a.Content,
-		}}
-		if err := sendRequest(ctx, client, h, selected, m); err != nil {
-			return err
-		}
-	}
-	return nil
-}
 
 func sendRequest(ctx context.Context, client *http.Client, h goback.Config, selected map[string]string, m mail.Mail) error {
 	exec, err := goback.NewCallbackExecutor(h, client)
@@ -176,30 +137,6 @@ func getPrefix(input string, prefixLength int) string {
 	return input
 }
 
-// buildHookConfig starts from cfg.Callback and augments it with runtime request files.
-// When no ExpectedStatus is configured, defaults to 2xx/3xx as success to mirror prior behavior.
-func buildHookConfig(cfg *config.Config, m mail.Mail, selected map[string]string) goback.Config {
-	// Start from the configured hook
-	h := cfg.Callback
-
-	// Bundle attachments into a single request if configured
-	if cfg.Attachments.Strategy == config.StrategyMultipartBundle && len(m.Attachments) > 0 {
-		if h.Multipart == nil {
-			h.Multipart = &goback.Multipart{
-				Fields: nil,
-				Files:  nil,
-			}
-		}
-		h.Multipart.Files = append(h.Multipart.Files, buildRequestFiles(cfg, m, selected)...)
-	}
-
-	// Apply a default ExpectedStatus if not set
-	if len(h.ExpectedStatus) == 0 {
-		h.ExpectedStatus = successStatusCodes()
-	}
-
-	return h
-}
 
 func buildRequestFiles(cfg *config.Config, m mail.Mail, selected map[string]string) []goback.ByteFile {
 	if len(m.Attachments) == 0 {
