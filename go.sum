@@ -29,6 +29,8 @@ github.com/googleapis/gax-go/v2 v2.17.0 h1:RksgfBpxqff0EZkDWYuz9q/uWsTVz+kf43LsZ
 github.com/googleapis/gax-go/v2 v2.17.0/go.mod h1:mzaqghpQp4JDh3HvADwrat+6M3MOIDp5YKHhb9PAgDY=
 github.com/jo-hoe/goback v0.0.0-20260221133900-168dc97d2f35 h1:4/XIJSN8oQKw0cXm5aFMzIg/1HO0jgwGE8fizd9FHwc=
 github.com/jo-hoe/goback v0.0.0-20260221133900-168dc97d2f35/go.mod h1:V5OS718PYttrIyqrzHD27wzj7qc0EH+5SrgfWnM3Ftw=
+github.com/jo-hoe/goback v0.0.0-20260224123626-7161f1f6a625 h1:8ttiJRchwaNX0AWpiw3+0SaSmst1+71rHrE9wUVGnM0=
+github.com/jo-hoe/goback v0.0.0-20260224123626-7161f1f6a625/go.mod h1:MgSCR0/N3Y3WI2i9bpQ0kazx+8+QBbMJctioYBixLnU=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
 github.com/kr/pretty v0.3.1/go.mod h1:hoEshYVHaxMs3cyo3Yncou5ZscifuDolrwPKZanG3xk=
 github.com/kr/text v0.2.0 h1:5Nx0Ya0ZqY2ygV366QzturHI13Jq95ApcVaJBhpS+AY=

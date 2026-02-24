@@ -69,12 +69,7 @@ func (st *multipartPerAttachmentStrategy) BuildRequests(base goback.Config, cfg 
 		if base.Multipart != nil {
 			fields = base.Multipart.Fields
 		}
-		if h.Multipart == nil {
-			h.Multipart = &goback.Multipart{Fields: fields, Files: nil}
-		} else {
-			// ensure we don't mutate shared slice
-			h.Multipart = &goback.Multipart{Fields: fields, Files: nil}
-		}
+		h.Multipart = &goback.Multipart{Fields: fields, Files: nil}
 
 		field := renderFieldName(cfg.Attachments.FieldName, i, a.Name, selected)
 		filename := filepath.Base(a.Name)
