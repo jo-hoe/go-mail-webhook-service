@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/jo-hoe/go-mail-webhook-service/app/config"
@@ -46,8 +47,9 @@ func Test_processMail_ProcessedAction_markRead(t *testing.T) {
 	}
 
 	var wg sync.WaitGroup
+	var fc atomic.Int64
 	wg.Add(1)
-	processMail(ctx, client, mock, m, cfg, map[string]string{}, &wg)
+	processMail(ctx, client, mock, m, cfg, map[string]string{}, &wg, &fc)
 	wg.Wait()
 
 	if mock.MarkReadCalls != 1 {
@@ -74,8 +76,9 @@ func Test_processMail_ProcessedAction_delete(t *testing.T) {
 	}
 
 	var wg sync.WaitGroup
+	var fc atomic.Int64
 	wg.Add(1)
-	processMail(ctx, client, mock, m, cfg, map[string]string{}, &wg)
+	processMail(ctx, client, mock, m, cfg, map[string]string{}, &wg, &fc)
 	wg.Wait()
 
 	if mock.DeleteCalls != 1 {

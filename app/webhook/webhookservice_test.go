@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/jo-hoe/go-mail-webhook-service/app/config"
@@ -120,8 +121,9 @@ func Test_processMail_requestBodyTemplating(t *testing.T) {
 	selected := map[string]string{"testKey": "testValue"}
 
 	var wg sync.WaitGroup
+	var fc atomic.Int64
 	wg.Add(1)
-	processMail(context.Background(), client, mock, m, cfg, selected, &wg)
+	processMail(context.Background(), client, mock, m, cfg, selected, &wg, &fc)
 	wg.Wait()
 
 	if gotMethod != testMethod {
@@ -237,8 +239,9 @@ func Test_processMail(t *testing.T) {
 		var wg sync.WaitGroup
 		selected, err := evaluateSelectorsCore(tt.args.mail, allProtos, true)
 		if err == nil {
+			var fc atomic.Int64
 			wg.Add(1)
-			processMail(tt.args.ctx, tt.args.client, tt.args.mailService, tt.args.mail, tt.args.config, selected, &wg)
+			processMail(tt.args.ctx, tt.args.client, tt.args.mailService, tt.args.mail, tt.args.config, selected, &wg, &fc)
 			wg.Wait()
 		}
 		bufferString := logBuffer.String()
@@ -303,7 +306,8 @@ func Test_processMails(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			processMails(tt.args.ctx, tt.args.client, tt.args.config, tt.args.mailService)
+			var fc atomic.Int64
+			processMails(tt.args.ctx, tt.args.client, tt.args.config, tt.args.mailService, &fc)
 		})
 		bufferString := logBuffer.String()
 		numberOfUnreadMails, err := tt.args.mailService.GetAllUnreadMail(context.Background())

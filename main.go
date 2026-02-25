@@ -43,5 +43,8 @@ func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: level})))
 
 	// Process config once and exit (suitable for Kubernetes Job execution)
-	webhook.NewWebhookService(cfg).Run()
+	if failMailsCount := webhook.NewWebhookService(cfg).Run(); failMailsCount > 0 {
+		slog.Error("webhook sends failed", "errors", failMailsCount)
+		os.Exit(1)
+	}
 }

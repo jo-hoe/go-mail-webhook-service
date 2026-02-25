@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"text/template"
 
 	"github.com/jo-hoe/goback"
@@ -32,35 +33,42 @@ type selectedMail struct {
 	Selected map[string]string
 }
 
+
 func NewWebhookService(cfg *config.Config) *WebhookService {
 	return &WebhookService{
 		config: cfg,
 	}
 }
 
-func (webhookService *WebhookService) Run() {
-	processWebhook(webhookService.config)
+func (webhookService *WebhookService) Run() int {
+	return processWebhook(webhookService.config)
 }
 
-func processWebhook(cfg *config.Config) {
+func processWebhook(cfg *config.Config) int {
+	// Local failure counter for this run (no globals)
+	var failureCount atomic.Int64
+
 	var clientType string
 	if cfg.MailClient.Gmail.Enabled {
 		clientType = gmailClientType
 	} else {
-		slog.Error("no mail client enabled in configuration")
-		return
+			slog.Error("no mail client enabled in configuration")
+			return 0
 	}
 	mailService, err := mail.NewMailClientService(clientType)
 	if err != nil {
 		slog.Error("could not create mail service", "error", err)
-		return
+		return 0
 	}
 
 	// Let goback construct its own http.Client honoring cfg.Callback.Timeout and InsecureSkipVerify.
-	processMails(context.Background(), nil, cfg, mailService)
+	processMails(context.Background(), nil, cfg, mailService, &failureCount)
+
+	// Return exact number of send failures
+	return int(failureCount.Load())
 }
 
-func processMails(ctx context.Context, client *http.Client, cfg *config.Config, mailService mail.MailClientService) {
+func processMails(ctx context.Context, client *http.Client, cfg *config.Config, mailService mail.MailClientService, failureCounter *atomic.Int64) {
 	slog.Info("start reading mails")
 	allMails, err := mailService.GetAllUnreadMail(ctx)
 	if err != nil {
@@ -84,13 +92,13 @@ func processMails(ctx context.Context, client *http.Client, cfg *config.Config, 
 	var wg sync.WaitGroup
 	for _, sm := range filteredMails {
 		wg.Add(1)
-		go processMail(ctx, client, mailService, sm.Mail, cfg, sm.Selected, &wg)
+		go processMail(ctx, client, mailService, sm.Mail, cfg, sm.Selected, &wg, failureCounter)
 	}
 	wg.Wait()
 }
 
 func processMail(ctx context.Context, client *http.Client, mailService mail.MailClientService,
-	m mail.Mail, cfg *config.Config, selected map[string]string, wg *sync.WaitGroup) {
+	m mail.Mail, cfg *config.Config, selected map[string]string, wg *sync.WaitGroup, failureCounter *atomic.Int64) {
 	defer wg.Done()
 
 	strategy := NewAttachmentDeliveryStrategy(cfg.Attachments.Strategy)
@@ -101,6 +109,7 @@ func processMail(ctx context.Context, client *http.Client, mailService mail.Mail
 			h.ExpectedStatus = successStatusCodes()
 		}
 		if err := sendRequest(ctx, client, h, selected, m); err != nil {
+			failureCounter.Add(1)
 			// Errors are logged in sendRequest; do not apply processed action.
 			return
 		}
