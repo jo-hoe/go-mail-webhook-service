@@ -2,13 +2,13 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "go-mail-webhook-service.fullname" . }}-{{ .Release.Revision }}
+  name: {{ include "go-mail-webhook-service.fullname" . }}-startup-job
   labels:
     {{- include "go-mail-webhook-service.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-weight": "1"
-    "helm.sh/hook-delete-policy": before-hook-creation
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed,before-hook-creation
 spec:
   backoffLimit: {{ .Values.job.backoffLimit }}
   ttlSecondsAfterFinished: {{ .Values.job.ttlSecondsAfterFinished }}
