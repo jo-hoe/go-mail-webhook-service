@@ -82,7 +82,7 @@ mailClient:
       name: ""
       credentialsBase64: ""
       filename: "client_secret.json"
-      # Optional: include the OAuth token file in the same Secret
+      # -- Optional: include the OAuth token file in the same Secret
       tokenBase64: ""
       tokenFilename: "request.token"
     # -- defines where the secret is mounted in the container (used by the app)

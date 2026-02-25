@@ -1,6 +1,6 @@
 # go-mail-webhook-service
 
-![Version: 7.0.1](https://img.shields.io/badge/Version-7.0.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 7.0.1](https://img.shields.io/badge/AppVersion-7.0.1-informational?style=flat-square)
+![Version: 7.1.0](https://img.shields.io/badge/Version-7.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 7.1.0](https://img.shields.io/badge/AppVersion-7.1.0-informational?style=flat-square)
 
 A Helm chart for deploying go-mail-webhook-service (polls mail and triggers webhooks)
 
@@ -38,6 +38,7 @@ A Helm chart for deploying go-mail-webhook-service (polls mail and triggers webh
 | mailClient.gmail.enabled | bool | `true` | enable Gmail client |
 | mailClient.gmail.mountPath | string | `"/secrets/mail"` | defines where the secret is mounted in the container (used by the app) |
 | mailClient.gmail.secrets | object | `{"create":false,"credentialsBase64":"","filename":"client_secret.json","name":"","tokenBase64":"","tokenFilename":"request.token"}` | creation and content options for client credentials and token |
+| mailClient.gmail.secrets.tokenBase64 | string | `""` | Optional: include the OAuth token file in the same Secret |
 | mailSelectors | list | `[]` |  |
 | nameOverride | string | `""` |  |
 | nodeSelector | object | `{}` |  |
