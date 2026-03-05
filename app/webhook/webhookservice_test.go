@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -41,11 +40,7 @@ func Test_filterMailsBySelectors(t *testing.T) {
 					{Subject: "donotincludethis"},
 				},
 				protos: mustPrototypes(t, []config.MailSelectorConfig{
-					{
-						Name:    "subjectScope",
-						Type:    "subjectRegex",
-						Pattern: "^includethis$",
-					},
+					{Name: "subjectScope", Type: "subjectRegex", Pattern: "^includethis$"},
 				}),
 			},
 			want: []mail.Mail{
@@ -53,7 +48,7 @@ func Test_filterMailsBySelectors(t *testing.T) {
 			},
 		},
 		{
-			name: "no selectors -> empty result",
+			name: "no selectors returns empty result",
 			args: args{
 				mails:  []mail.Mail{{Subject: "anything"}},
 				protos: []selector.SelectorPrototype{},
@@ -75,16 +70,13 @@ func Test_filterMailsBySelectors(t *testing.T) {
 	}
 }
 
-func Test_processMail_requestBodyTemplating(t *testing.T) {
+func Test_processOneMail_requestBodyTemplating(t *testing.T) {
 	testMethod := "POST"
-	testUrl := "http://example.com"
-	expectedBody := "{\"testKey\":\"testValue\"}"
+	testURL := "http://example.com"
+	expectedBody := `{"testKey":"testValue"}`
 
-	// Capture sent request details
-	var gotMethod string
-	var gotURL string
+	var gotMethod, gotURL, gotBody string
 	var gotHeaders http.Header
-	var gotBody string
 
 	client := &http.Client{
 		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
@@ -106,275 +98,191 @@ func Test_processMail_requestBodyTemplating(t *testing.T) {
 
 	mock := &mail.MailClientServiceMock{}
 	m := mail.Mail{Subject: "s", Body: "b"}
-
 	cfg := &config.Config{
 		Callback: goback.Config{
-			URL:    testUrl,
+			URL:    testURL,
 			Method: testMethod,
 			Headers: map[string]string{
 				"Content-Type": "application/json",
 			},
-			Body: "{\"testKey\":\"{{ .testKey }}\"}",
+			Body: `{"testKey":"{{ .testKey }}"}`,
 		},
 	}
-
 	selected := map[string]string{"testKey": "testValue"}
 
-	var wg sync.WaitGroup
 	var fc atomic.Int64
-	wg.Add(1)
-	processMail(context.Background(), client, mock, m, cfg, selected, &wg, &fc)
-	wg.Wait()
+	processOneMail(context.Background(), client, mock, m, cfg, selected, &fc)
 
 	if gotMethod != testMethod {
 		t.Errorf("method = %s, want %s", gotMethod, testMethod)
 	}
-	if gotURL != testUrl {
-		t.Errorf("url = %s, want %s", gotURL, testUrl)
+	if gotURL != testURL {
+		t.Errorf("url = %s, want %s", gotURL, testURL)
 	}
 	if gotBody != expectedBody {
 		t.Errorf("body = %s, want %s", gotBody, expectedBody)
 	}
-	// Optional: check header presence
 	if gotHeaders.Get("Content-Type") != "application/json" {
-		t.Errorf("Content-Type header = %s, want application/json", gotHeaders.Get("Content-Type"))
+		t.Errorf("Content-Type = %s, want application/json", gotHeaders.Get("Content-Type"))
 	}
 }
 
-
-func Test_processMail(t *testing.T) {
+func Test_processOneMail(t *testing.T) {
 	var logBuffer bytes.Buffer
-	logger := slog.New(slog.NewTextHandler(&logBuffer, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	slog.SetDefault(logger)
-	t.Log(logBuffer.String())
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logBuffer, &slog.HandlerOptions{Level: slog.LevelDebug})))
 
-	// Build non-scope prototypes for body
-	allProtos, err := buildSelectorPrototypes(&config.Config{
-		MailSelectors: []config.MailSelectorConfig{
-			{
-				Name:    "subjectScope",
-				Type:    "subjectRegex",
-				Pattern: "testSubject",
-			},
-			{
-				Name:    "testKey",
-				Type:    "bodyRegex",
-				Pattern: "testValue",
-			},
-		},
+	allProtos, err := selector.NewSelectorPrototypes([]config.MailSelectorConfig{
+		{Name: "subjectScope", Type: "subjectRegex", Pattern: "testSubject"},
+		{Name: "testKey", Type: "bodyRegex", Pattern: "testValue"},
 	})
 	if err != nil {
 		t.Fatalf("failed to build selector prototypes: %v", err)
 	}
 
-	type args struct {
-		ctx            context.Context
-		client         *http.Client
-		mailService    mail.MailClientService
-		mail           mail.Mail
-		config         *config.Config
+	tests := []struct {
+		name           string
+		m              mail.Mail
+		cfg            *config.Config
 		wantSuccessLog bool
-	}
-	tests := []struct {
-		name string
-		args args
 	}{
 		{
-			name: "process mail",
-			args: args{
-				ctx: context.Background(),
-				client: &http.Client{
-					Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-						return &http.Response{
-							StatusCode: 200,
-							Body:       io.NopCloser(strings.NewReader("")),
-							Header:     make(http.Header),
-							Request:    req,
-						}, nil
-					}),
-				},
-				mailService: &mail.MailClientServiceMock{},
-				mail: mail.Mail{
-					Subject: "testSubject",
-					Body:    "testValue",
-				},
-				config: &config.Config{
-					Callback: goback.Config{
-						URL:    "http://example.com",
-						Method: "POST",
-					},
-				},
-				wantSuccessLog: true,
+			name: "matching mail is processed and logged",
+			m:    mail.Mail{Subject: "testSubject", Body: "testValue"},
+			cfg: &config.Config{
+				Callback: goback.Config{URL: "http://example.com", Method: "POST"},
 			},
-		}, {
-			name: "process mail without body selector values",
-			args: args{
-				ctx: context.Background(),
-				client: &http.Client{
-					Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-						return &http.Response{
-							StatusCode: 200,
-							Body:       io.NopCloser(strings.NewReader("")),
-							Header:     make(http.Header),
-							Request:    req,
-						}, nil
-					}),
-				},
-				mailService: &mail.MailClientServiceMock{},
-				mail: mail.Mail{
-					Subject: "testSubject",
-					Body:    "noMatch",
-				},
-				config: &config.Config{
-					Callback: goback.Config{
-						URL:    "http://example.com",
-						Method: "POST",
-					},
-				},
-				wantSuccessLog: false,
-			},
+			wantSuccessLog: true,
 		},
-	}
-	for _, tt := range tests {
-		var wg sync.WaitGroup
-		selected, err := evaluateSelectorsCore(tt.args.mail, allProtos, true)
-		if err == nil {
-			var fc atomic.Int64
-			wg.Add(1)
-			processMail(tt.args.ctx, tt.args.client, tt.args.mailService, tt.args.mail, tt.args.config, selected, &wg, &fc)
-			wg.Wait()
-		}
-		bufferString := logBuffer.String()
-		if tt.args.wantSuccessLog && !strings.Contains(bufferString, "successfully processed mail") {
-			t.Errorf("Did not find expected log, log was'%s'", bufferString)
-		}
-	}
-}
-
-func Test_processMails(t *testing.T) {
-	var logBuffer bytes.Buffer
-	logger := slog.New(slog.NewTextHandler(&logBuffer, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	slog.SetDefault(logger)
-	t.Log(logBuffer.String())
-
-	type args struct {
-		ctx         context.Context
-		client      *http.Client
-		config      *config.Config
-		mailService mail.MailClientService
-	}
-	tests := []struct {
-		name string
-		args args
-	}{
 		{
-			name: "process mails",
-			args: args{
-				ctx: context.Background(),
-				client: &http.Client{
-					Transport: &http.Transport{},
-				},
-				mailService: &mail.MailClientServiceMock{
-					ReturnErrorsOnly: false,
-					Mails: []mail.Mail{
-						{
-							Subject: "testSubject",
-							Body:    "testValue",
-						},
-					},
-				},
-				config: &config.Config{
-					MailSelectors: []config.MailSelectorConfig{
-						{
-							Name:    "subjectScope",
-							Type:    "subjectRegex",
-							Pattern: "testSubject",
-						},
-						{
-							Name:    "testKey",
-							Type:    "bodyRegex",
-							Pattern: "testValue",
-						},
-					},
-					Callback: goback.Config{
-						URL:    "http://example.com",
-						Method: "POST",
-					},
-				},
+			name: "non-matching mail body skips processing",
+			m:    mail.Mail{Subject: "testSubject", Body: "noMatch"},
+			cfg: &config.Config{
+				Callback: goback.Config{URL: "http://example.com", Method: "POST"},
 			},
+			wantSuccessLog: false,
 		},
 	}
+
+	okClient := &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: 200,
+				Body:       io.NopCloser(strings.NewReader("")),
+				Header:     make(http.Header),
+				Request:    req,
+			}, nil
+		}),
+	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			selected, err := selectMailValues(tt.m, allProtos)
+			if err != nil {
+				if tt.wantSuccessLog {
+					t.Errorf("selectMailValues() unexpected error: %v", err)
+				}
+				return
+			}
 			var fc atomic.Int64
-			processMails(tt.args.ctx, tt.args.client, tt.args.config, tt.args.mailService, &fc)
-		})
-		bufferString := logBuffer.String()
-		numberOfUnreadMails, err := tt.args.mailService.GetAllUnreadMail(context.Background())
-		if err != nil {
-			t.Error(err)
-		}
-		expectedLog := fmt.Sprintf("number of unread mails matching all selectors is: %d", len(numberOfUnreadMails))
-		if !strings.Contains(bufferString, expectedLog) {
-			t.Errorf("Did not find expected log '%s'", expectedLog)
-		}
-	}
-}
-
-func Test_getPrefix(t *testing.T) {
-	type args struct {
-		input  string
-		length int
-	}
-	tests := []struct {
-		name string
-		args args
-		want string
-	}{
-		{
-			name: "get short prefix",
-			args: args{
-				input:  "testValue",
-				length: 100,
-			},
-			want: "testValue",
-		}, {
-			name: "exactly on limit",
-			args: args{
-				input:  createString('a', 100),
-				length: 100,
-			},
-			want: createString('a', 100),
-		}, {
-			name: "over limit",
-			args: args{
-				input:  createString('a', 200),
-				length: 100,
-			},
-			want: fmt.Sprintf("%s...", createString('a', 100)),
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := getPrefix(tt.args.input, tt.args.length); got != tt.want {
-				t.Errorf("getPrefix() = %v, want %v", got, tt.want)
+			processOneMail(context.Background(), okClient, &mail.MailClientServiceMock{}, tt.m, tt.cfg, selected, &fc)
+			if tt.wantSuccessLog && !strings.Contains(logBuffer.String(), "successfully processed mail") {
+				t.Errorf("expected success log; got: %s", logBuffer.String())
 			}
 		})
 	}
 }
 
-func createString(character rune, length int) string {
+func Test_processMails(t *testing.T) {
+	var logBuffer bytes.Buffer
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logBuffer, &slog.HandlerOptions{Level: slog.LevelDebug})))
+
+	tests := []struct {
+		name        string
+		cfg         *config.Config
+		mailService mail.MailClientService
+	}{
+		{
+			name: "mails are fetched and selector count is logged",
+			mailService: &mail.MailClientServiceMock{
+				Mails: []mail.Mail{
+					{Subject: "testSubject", Body: "testValue"},
+				},
+			},
+			cfg: &config.Config{
+				MailSelectors: []config.MailSelectorConfig{
+					{Name: "subjectScope", Type: "subjectRegex", Pattern: "testSubject"},
+					{Name: "testKey", Type: "bodyRegex", Pattern: "testValue"},
+				},
+				Callback: goback.Config{URL: "http://example.com", Method: "POST"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := &http.Client{Transport: &http.Transport{}}
+			var fc atomic.Int64
+			processMails(context.Background(), client, tt.cfg, tt.mailService, &fc)
+
+			allMails, err := tt.mailService.GetAllUnreadMail(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+			expectedLog := fmt.Sprintf("count=%d", len(allMails))
+			if !strings.Contains(logBuffer.String(), expectedLog) {
+				t.Errorf("expected log containing %q; got: %s", expectedLog, logBuffer.String())
+			}
+		})
+	}
+}
+
+func Test_truncate(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  string
+		maxLen int
+		want   string
+	}{
+		{
+			name:   "shorter than limit",
+			input:  "testValue",
+			maxLen: 100,
+			want:   "testValue",
+		},
+		{
+			name:   "exactly at limit",
+			input:  createString('a', 100),
+			maxLen: 100,
+			want:   createString('a', 100),
+		},
+		{
+			name:   "over limit gets ellipsis",
+			input:  createString('a', 200),
+			maxLen: 100,
+			want:   createString('a', 100) + "...",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := truncate(tt.input, tt.maxLen); got != tt.want {
+				t.Errorf("truncate() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func createString(ch rune, n int) string {
 	var sb strings.Builder
-	for i := 0; i < length; i++ {
-		sb.WriteRune(character)
+	for i := 0; i < n; i++ {
+		sb.WriteRune(ch)
 	}
 	return sb.String()
 }
 
 func mustPrototypes(t *testing.T, cfgs []config.MailSelectorConfig) []selector.SelectorPrototype {
-	all, err := selector.NewSelectorPrototypes(cfgs)
+	t.Helper()
+	protos, err := selector.NewSelectorPrototypes(cfgs)
 	if err != nil {
 		t.Fatalf("failed to build selector prototypes: %v", err)
 	}
-	return all
+	return protos
 }

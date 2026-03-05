@@ -20,179 +20,146 @@ import (
 	"google.golang.org/api/option"
 )
 
-type GmailService struct {
-	credentialsPath string
-}
-
 const (
 	CredentialsFileName = "client_secret.json"
 	TokenFileName       = "request.token"
 )
 
-var GMailDomainNames = []string{"googlemail.com", "gmail.com"}
-
-func NewGmailService(credentialsPath string) *GmailService {
-	return &GmailService{
-		credentialsPath: credentialsPath,
-	}
+// GmailService implements MailClientService using the Gmail API.
+type GmailService struct {
+	credentialsPath string
 }
 
-func (service *GmailService) GetAllUnreadMail(context context.Context) ([]Mail, error) {
-	result := make([]Mail, 0)
-	gmailService, err := service.getGmailService(context, gmail.GmailModifyScope)
+// NewGmailService creates a GmailService that reads credentials from credentialsPath.
+func NewGmailService(credentialsPath string) *GmailService {
+	return &GmailService{credentialsPath: credentialsPath}
+}
+
+func (s *GmailService) GetAllUnreadMail(ctx context.Context) ([]Mail, error) {
+	svc, err := s.getGmailService(ctx, gmail.GmailModifyScope)
 	if err != nil {
-		return result, err
+		return nil, err
 	}
 
-	// Gmail API allows using the literal "me" to refer to the authenticated user.
-	// Credentials and token are loaded from the mounted credentials path.
-	user := "me"
-	listCall := gmailService.Users.Messages.List(user).Q("is:unread")
-	resp, err := listCall.Do()
+	resp, err := svc.Users.Messages.List("me").Q("is:unread").Do()
 	if err != nil {
-		var gErr *googleapi.Error
-		if errors.As(err, &gErr) && (gErr.Code == 401 || gErr.Code == 403) {
-			return result, fmt.Errorf("gmail API returned %d unauthorized/forbidden. The OAuth token at %s may be invalid, expired, or revoked. Re-generate the token using the CLI (cli/gmail) and ensure it is mounted at the configured credentialsPath. Original error: %v", gErr.Code, filepath.Join(service.credentialsPath, TokenFileName), err)
-		}
-		return result, fmt.Errorf("unable to retrieve messages from Gmail: %v", err)
+		return nil, s.wrapGmailError(err, "list unread messages", "")
 	}
 
-	for _, message := range resp.Messages {
-		fullMessage, err := gmailService.Users.Messages.Get(user, message.Id).Format("full").Do()
+	result := make([]Mail, 0, len(resp.Messages))
+	for _, msg := range resp.Messages {
+		full, err := svc.Users.Messages.Get("me", msg.Id).Format("full").Do()
 		if err != nil {
-			return result, err
+			return nil, err
 		}
-
-		subject := extractSubject(fullMessage.Payload.Headers)
-		sender := extractSender(fullMessage.Payload.Headers)
-		recipients := extractRecipients(fullMessage.Payload.Headers)
-		body := extractPlainTextBody(fullMessage.Payload.Parts)
-		attachments := extractAttachments(gmailService, user, message.Id, fullMessage.Payload.Parts)
-
 		result = append(result, Mail{
-			Id:          message.Id,
-			Sender:      sender,
-			Recipients:  recipients,
-			Subject:     subject,
-			Body:        body,
-			Attachments: attachments,
+			Id:          msg.Id,
+			Sender:      extractSender(full.Payload.Headers),
+			Recipients:  extractRecipients(full.Payload.Headers),
+			Subject:     extractSubject(full.Payload.Headers),
+			Body:        extractPlainTextBody(full.Payload.Parts),
+			Attachments: extractAttachments(svc, "me", msg.Id, full.Payload.Parts),
 		})
 	}
-
 	return result, nil
 }
 
-func (service *GmailService) MarkMailAsRead(context context.Context, mail Mail) error {
-	gmailService, err := service.getGmailService(context, gmail.GmailModifyScope)
+func (s *GmailService) MarkMailAsRead(ctx context.Context, mail Mail) error {
+	svc, err := s.getGmailService(ctx, gmail.GmailModifyScope)
 	if err != nil {
 		return err
 	}
-
-	req := &gmail.ModifyMessageRequest{
-		RemoveLabelIds: []string{"UNREAD"},
-	}
-	_, err = gmailService.Users.Messages.Modify("me", mail.Id, req).Do()
+	req := &gmail.ModifyMessageRequest{RemoveLabelIds: []string{"UNREAD"}}
+	_, err = svc.Users.Messages.Modify("me", mail.Id, req).Do()
 	if err != nil {
-		var gErr *googleapi.Error
-		if errors.As(err, &gErr) && (gErr.Code == 401 || gErr.Code == 403) {
-			return fmt.Errorf("gmail API returned %d unauthorized/forbidden while marking message %s as read. The OAuth token at %s may be invalid, expired, or revoked. Re-generate the token using the CLI (cli/gmail) and ensure it is mounted at the configured credentialsPath. Original error: %v", gErr.Code, mail.Id, filepath.Join(service.credentialsPath, TokenFileName), err)
-		}
-		return fmt.Errorf("unable to mark message %s as read: %v", mail.Id, err)
+		return s.wrapGmailError(err, "mark message as read", mail.Id)
 	}
-
 	return nil
 }
 
-func (service *GmailService) DeleteMail(context context.Context, mail Mail) error {
-	gmailService, err := service.getGmailService(context, gmail.GmailModifyScope)
+func (s *GmailService) DeleteMail(ctx context.Context, mail Mail) error {
+	svc, err := s.getGmailService(ctx, gmail.GmailModifyScope)
 	if err != nil {
 		return err
 	}
-
-	// Permanently delete the message
-	err = gmailService.Users.Messages.Delete("me", mail.Id).Do()
-	if err != nil {
-		var gErr *googleapi.Error
-		if errors.As(err, &gErr) && (gErr.Code == 401 || gErr.Code == 403) {
-			return fmt.Errorf("gmail API returned %d unauthorized/forbidden while deleting message %s. The OAuth token at %s may be invalid, expired, or revoked. Re-generate the token using the CLI (cli/gmail) and ensure it is mounted at the configured credentialsPath. Original error: %v", gErr.Code, mail.Id, filepath.Join(service.credentialsPath, TokenFileName), err)
-		}
-		return fmt.Errorf("unable to delete message %s: %v", mail.Id, err)
+	if err := svc.Users.Messages.Delete("me", mail.Id).Do(); err != nil {
+		return s.wrapGmailError(err, "delete message", mail.Id)
 	}
-
 	return nil
+}
+
+// wrapGmailError returns a descriptive error, identifying auth failures (401/403) separately.
+func (s *GmailService) wrapGmailError(err error, action, mailID string) error {
+	tokenPath := filepath.Join(s.credentialsPath, TokenFileName)
+	ctx := action
+	if mailID != "" {
+		ctx = fmt.Sprintf("%s (mail %s)", action, mailID)
+	}
+	var gErr *googleapi.Error
+	if errors.As(err, &gErr) && (gErr.Code == 401 || gErr.Code == 403) {
+		return fmt.Errorf("%s: gmail API returned %d — OAuth token at %s may be invalid or revoked; regenerate using cli/gmail: %w",
+			ctx, gErr.Code, tokenPath, err)
+	}
+	return fmt.Errorf("%s: %w", ctx, err)
 }
 
 func extractSubject(headers []*gmail.MessagePartHeader) string {
-	for _, header := range headers {
-		if header.Name == "Subject" {
-			return header.Value
-		}
-	}
-	return ""
+	return findHeader(headers, "Subject")
 }
 
 func extractSender(headers []*gmail.MessagePartHeader) string {
-	for _, header := range headers {
-		if header.Name == "From" {
-			if addr, err := gomail.ParseAddress(header.Value); err == nil && addr != nil {
-				return addr.Address
-			}
-			return header.Value
-		}
+	raw := findHeader(headers, "From")
+	if addr, err := gomail.ParseAddress(raw); err == nil && addr != nil {
+		return addr.Address
 	}
-	return ""
+	return raw
 }
 
-// extractRecipients builds a list of recipient addresses from common headers:
-// - Delivered-To (primary target mailbox; may appear multiple times)
-// - To and Cc (may contain multiple addresses)
-// Bcc is typically not visible to recipients, so it is not considered here.
+// extractRecipients collects unique recipient addresses from Delivered-To, To, and Cc headers.
+// Bcc is intentionally excluded as it is typically not visible to recipients.
 func extractRecipients(headers []*gmail.MessagePartHeader) []string {
+	seen := make(map[string]bool)
 	var recipients []string
-	seen := map[string]bool{}
 
-	// Delivered-To may appear multiple times
-	for _, header := range headers {
-		if header.Name == "Delivered-To" {
-			if addr, err := gomail.ParseAddress(header.Value); err == nil && addr != nil {
-				if addr.Address != "" && !seen[addr.Address] {
-					seen[addr.Address] = true
-					recipients = append(recipients, addr.Address)
-				}
-			} else {
-				v := strings.TrimSpace(header.Value)
-				if v != "" && !seen[v] {
-					seen[v] = true
-					recipients = append(recipients, v)
-				}
+	addAddress := func(raw string) {
+		if addr, err := gomail.ParseAddress(raw); err == nil && addr != nil && addr.Address != "" {
+			if !seen[addr.Address] {
+				seen[addr.Address] = true
+				recipients = append(recipients, addr.Address)
 			}
+			return
+		}
+		v := strings.TrimSpace(raw)
+		if v != "" && !seen[v] {
+			seen[v] = true
+			recipients = append(recipients, v)
 		}
 	}
 
-	// Parse To and Cc lists
-	for _, header := range headers {
-		if header.Name == "To" || header.Name == "Cc" {
-			if list, err := gomail.ParseAddressList(header.Value); err == nil {
-				for _, a := range list {
-					if a != nil && a.Address != "" && !seen[a.Address] {
-						seen[a.Address] = true
-						recipients = append(recipients, a.Address)
-					}
-				}
-			} else {
-				// Fallback: comma-separated
-				parts := strings.Split(header.Value, ",")
-				for _, p := range parts {
-					v := strings.TrimSpace(p)
-					if v != "" && !seen[v] {
-						seen[v] = true
-						recipients = append(recipients, v)
-					}
+	addAddressList := func(raw string) {
+		if list, err := gomail.ParseAddressList(raw); err == nil {
+			for _, a := range list {
+				if a != nil && a.Address != "" && !seen[a.Address] {
+					seen[a.Address] = true
+					recipients = append(recipients, a.Address)
 				}
 			}
+			return
+		}
+		// Fallback: comma-separated raw strings.
+		for _, p := range strings.Split(raw, ",") {
+			addAddress(p)
 		}
 	}
 
+	for _, h := range headers {
+		switch h.Name {
+		case "Delivered-To":
+			addAddress(h.Value)
+		case "To", "Cc":
+			addAddressList(h.Value)
+		}
+	}
 	return recipients
 }
 
@@ -201,15 +168,13 @@ func extractPlainTextBody(parts []*gmail.MessagePart) string {
 		if part.MimeType == "text/plain" {
 			data, err := base64.URLEncoding.DecodeString(part.Body.Data)
 			if err != nil {
-				slog.Error("Error decoding body data", "error", err)
+				slog.Error("error decoding body data", "error", err)
 				continue
 			}
 			return string(data)
 		}
-		// Handle multipart email: recursively check for plain text
 		if len(part.Parts) > 0 {
-			body := extractPlainTextBody(part.Parts)
-			if body != "" {
+			if body := extractPlainTextBody(part.Parts); body != "" {
 				return body
 			}
 		}
@@ -217,80 +182,78 @@ func extractPlainTextBody(parts []*gmail.MessagePart) string {
 	return ""
 }
 
-// extractAttachments walks the message parts to collect attachments (filename + raw bytes).
+// extractAttachments walks message parts recursively and collects file attachments.
 func extractAttachments(svc *gmail.Service, user, msgID string, parts []*gmail.MessagePart) []Attachment {
 	var result []Attachment
 	for _, part := range parts {
-		// If this part has a filename, it's typically an attachment part
 		if part.Filename != "" && part.Body != nil && part.Body.AttachmentId != "" {
 			att, err := svc.Users.Messages.Attachments.Get(user, msgID, part.Body.AttachmentId).Do()
 			if err != nil {
-				slog.Error("Error retrieving attachment", "filename", part.Filename, "error", err)
+				slog.Error("error retrieving attachment", "filename", part.Filename, "error", err)
 				continue
 			}
-			// Gmail returns URL-safe base64 for attachments
 			data, err := base64.URLEncoding.DecodeString(att.Data)
 			if err != nil {
-				slog.Error("Error decoding attachment", "filename", part.Filename, "error", err)
+				slog.Error("error decoding attachment", "filename", part.Filename, "error", err)
 				continue
 			}
-			result = append(result, Attachment{
-				Name:    part.Filename,
-				Content: data,
-			})
+			result = append(result, Attachment{Name: part.Filename, Content: data})
 		}
-		// Recurse into nested parts
 		if len(part.Parts) > 0 {
-			sub := extractAttachments(svc, user, msgID, part.Parts)
-			if len(sub) > 0 {
-				result = append(result, sub...)
-			}
+			result = append(result, extractAttachments(svc, user, msgID, part.Parts)...)
 		}
 	}
 	return result
 }
 
-func (service *GmailService) getGmailService(context context.Context, scope ...string) (*gmail.Service, error) {
-	config, err := GetGmailConfig(service.credentialsPath, scope...)
-	if err != nil {
-		return nil, err
+// findHeader returns the value of the first header matching name, or "" if absent.
+func findHeader(headers []*gmail.MessagePartHeader, name string) string {
+	for _, h := range headers {
+		if h.Name == name {
+			return h.Value
+		}
 	}
-
-	ts, err := service.getTokenSource(context, config)
-	if err != nil {
-		return nil, err
-	}
-
-	return gmail.NewService(context, option.WithTokenSource(ts))
+	return ""
 }
 
-func GetGmailConfig(credentialsPath string, scope ...string) (*oauth2.Config, error) {
-	b, err := os.ReadFile(filepath.Join(credentialsPath, CredentialsFileName)) // #nosec G304 -- reading a fixed filename within a configured credentials directory
+func (s *GmailService) getGmailService(ctx context.Context, scope ...string) (*gmail.Service, error) {
+	cfg, err := GetGmailConfig(s.credentialsPath, scope...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read Gmail client credentials at %s: %w", filepath.Join(credentialsPath, CredentialsFileName), err)
+		return nil, err
 	}
+	ts, err := s.getTokenSource(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	return gmail.NewService(ctx, option.WithTokenSource(ts))
+}
 
-	// If modifying these scopes, delete your previously saved token.json.
+// GetGmailConfig reads the OAuth client configuration from the credentials directory.
+func GetGmailConfig(credentialsPath string, scope ...string) (*oauth2.Config, error) {
+	credFile := filepath.Join(credentialsPath, CredentialsFileName)
+	b, err := os.ReadFile(credFile) // #nosec G304 -- path is built from a configured directory and fixed filename
+	if err != nil {
+		return nil, fmt.Errorf("failed to read Gmail credentials at %s: %w", credFile, err)
+	}
 	return google.ConfigFromJSON(b, scope...)
 }
 
-// Retrieves a token from a local file.
-func tokenFromFile(filePath string) (*oauth2.Token, error) {
-	file, err := os.Open(filePath) // #nosec G304 -- file path is built from a configured directory and fixed filename (TokenFileName)
+// tokenFromFile loads an OAuth token from disk.
+func tokenFromFile(path string) (*oauth2.Token, error) {
+	f, err := os.Open(path) // #nosec G304 -- path is built from a configured directory and fixed filename
 	if err != nil {
 		return nil, err
 	}
 	defer func() {
-		if cerr := file.Close(); cerr != nil {
-			slog.Error("Error closing file", "error", cerr)
+		if cerr := f.Close(); cerr != nil {
+			slog.Error("error closing token file", "error", cerr)
 		}
 	}()
 	token := &oauth2.Token{}
-	err = json.NewDecoder(file).Decode(token)
-	return token, err
+	return token, json.NewDecoder(f).Decode(token)
 }
 
-// tokenSavingSource persists any refreshed token to disk to keep the on-disk cache in sync.
+// tokenSavingSource wraps a TokenSource and persists refreshed tokens to disk.
 type tokenSavingSource struct {
 	oauth2.TokenSource
 	path string
@@ -301,42 +264,34 @@ func (s *tokenSavingSource) Token() (*oauth2.Token, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Persist the full token JSON (including refresh_token) to file
-	file, err := os.OpenFile(s.path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+	f, err := os.OpenFile(s.path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
-		// In Kubernetes, Secrets are mounted read-only. Persisting the refreshed token will fail with a read-only FS.
-		// Demote read-only or permission-related failures to warning to avoid noisy errors in such environments.
 		if strings.Contains(strings.ToLower(err.Error()), "read-only file system") || os.IsPermission(err) {
-			slog.Warn("token not persisted (destination is read-only or permission denied)", "path", s.path, "error", err)
+			slog.Warn("token not persisted (read-only or permission denied)", "path", s.path, "error", err)
 		} else {
 			slog.Error("failed to open token file for writing", "path", s.path, "error", err)
 		}
-		return t, nil // return token even if persisting failed
+		return t, nil
 	}
 	defer func() {
-		if cerr := file.Close(); cerr != nil {
-			slog.Error("Error closing token file", "error", cerr)
+		if cerr := f.Close(); cerr != nil {
+			slog.Error("error closing token file", "error", cerr)
 		}
 	}()
-	if err := json.NewEncoder(file).Encode(t); err != nil {
-		slog.Error("failed to encode token JSON", "path", s.path, "error", err)
+	if err := json.NewEncoder(f).Encode(t); err != nil {
+		slog.Error("failed to encode token", "path", s.path, "error", err)
 	}
 	return t, nil
 }
 
-// getTokenSource returns a TokenSource that auto-refreshes and saves refreshed tokens back to request.token
-func (service *GmailService) getTokenSource(ctx context.Context, config *oauth2.Config) (oauth2.TokenSource, error) {
-	tokenFilePath := filepath.Join(service.credentialsPath, TokenFileName)
-	token, err := tokenFromFile(tokenFilePath)
+func (s *GmailService) getTokenSource(ctx context.Context, cfg *oauth2.Config) (oauth2.TokenSource, error) {
+	tokenPath := filepath.Join(s.credentialsPath, TokenFileName)
+	token, err := tokenFromFile(tokenPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read OAuth token from %s: %w. If the file is missing or corrupted, re-generate it using the CLI tool (cli/gmail)", tokenFilePath, err)
+		return nil, fmt.Errorf("failed to read OAuth token from %s: %w; regenerate using cli/gmail", tokenPath, err)
 	}
-
-	// If the token is already expired and there's no refresh token, provide a helpful error
-	if token.Expiry.Before(time.Now().Add(-1*time.Minute)) && token.RefreshToken == "" {
-		return nil, fmt.Errorf("stored OAuth token in %s is expired and has no refresh_token to refresh it. Please re-authorize to generate a new token using the CLI tool (cli/gmail)", tokenFilePath)
+	if token.Expiry.Before(time.Now().Add(-time.Minute)) && token.RefreshToken == "" {
+		return nil, fmt.Errorf("OAuth token at %s is expired with no refresh_token; re-authorize using cli/gmail", tokenPath)
 	}
-
-	ts := config.TokenSource(ctx, token)
-	return &tokenSavingSource{TokenSource: ts, path: tokenFilePath}, nil
+	return &tokenSavingSource{TokenSource: cfg.TokenSource(ctx, token), path: tokenPath}, nil
 }

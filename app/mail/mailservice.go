@@ -3,20 +3,33 @@ package mail
 import (
 	"context"
 	"fmt"
-	"strings"
 )
 
+// ClientType identifies a mail client backend.
+type ClientType string
+
+const (
+	// GmailClientType selects the Google Gmail backend.
+	GmailClientType ClientType = "gmail"
+
+	// DefaultCredentialsPath is the default path for mounted OAuth credentials.
+	DefaultCredentialsPath = "/secrets/mail"
+)
+
+// MailClientService defines the operations required by the application.
 type MailClientService interface {
-	GetAllUnreadMail(context context.Context) ([]Mail, error)
-	MarkMailAsRead(context context.Context, mail Mail) error
-	DeleteMail(context context.Context, mail Mail) error
+	GetAllUnreadMail(ctx context.Context) ([]Mail, error)
+	MarkMailAsRead(ctx context.Context, mail Mail) error
+	DeleteMail(ctx context.Context, mail Mail) error
 }
 
+// Attachment represents a single email attachment.
 type Attachment struct {
 	Name    string
 	Content []byte
 }
 
+// Mail represents an email message.
 type Mail struct {
 	Id          string
 	Sender      string
@@ -26,14 +39,11 @@ type Mail struct {
 	Attachments []Attachment
 }
 
-const DefaultCredentialsPath = "/secrets/mail"
-
-// NewMailClientService is a factory that creates a concrete MailClientService based on the provided client type.
-// Currently supported types: "gmail"
-func NewMailClientService(clientType string) (MailClientService, error) {
-	switch strings.ToLower(strings.TrimSpace(clientType)) {
-	case "", "gmail":
-		// Gmail client: use default mounted credentials path
+// NewMailClientService returns a MailClientService for the given client type.
+// An empty ClientType defaults to GmailClientType.
+func NewMailClientService(clientType ClientType) (MailClientService, error) {
+	switch clientType {
+	case GmailClientType, "":
 		return NewGmailService(DefaultCredentialsPath), nil
 	default:
 		return nil, fmt.Errorf("unsupported mail client type: %s", clientType)

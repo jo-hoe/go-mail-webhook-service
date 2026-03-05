@@ -9,48 +9,48 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// Config is the application configuration.
-//   - Callback contains the goback.Config used to execute webhooks (URL, method, headers, query, body, multipart, etc.).
-//   - Attachments controls forwarding email attachments into the webhook's multipart request.
+// Config is the top-level application configuration.
 type Config struct {
 	LogLevel      string               `yaml:"logLevel"`
 	MailClient    MailClient           `yaml:"mailClient"`
 	MailSelectors []MailSelectorConfig `yaml:"mailSelectors"`
 
-	// Callback contains the strongly-typed goback configuration for outgoing webhook calls.
+	// Callback is the strongly-typed goback configuration for outgoing webhook calls.
 	Callback goback.Config `yaml:"callback"`
 
 	// Attachments controls how email attachments are forwarded via multipart file parts.
 	Attachments AttachmentsConfig `yaml:"attachments"`
 
-	// Processing controls what to do with a mail after successful webhook execution.
+	// Processing controls what to do with a mail after a successful webhook call.
 	Processing Processing `yaml:"processing"`
 }
 
+// MailSelectorConfig defines a single mail selector rule.
 type MailSelectorConfig struct {
 	Name         string `yaml:"name"`
 	Type         string `yaml:"type"`         // "subjectRegex" | "bodyRegex" | "attachmentNameRegex" | "senderRegex" | "recipientRegex"
 	Pattern      string `yaml:"pattern"`      // regex pattern
-	CaptureGroup int    `yaml:"captureGroup"` // default 0 (full match)
+	CaptureGroup int    `yaml:"captureGroup"` // 0 = full match (default)
 }
 
+// GmailClient holds Gmail-specific client configuration.
 type GmailClient struct {
 	Enabled bool `yaml:"enabled"`
 }
 
+// MailClient holds mail client configuration.
 type MailClient struct {
 	Gmail GmailClient `yaml:"gmail"`
 }
 
+// Processing controls post-processing behaviour after a successful webhook call.
 type Processing struct {
-	// ProcessedAction controls how a mail is marked as processed after a successful webhook call.
-	// Supported values:
-	// - "markRead" (default): remove UNREAD label
-	// - "delete": delete the mail using the mail client (be aware this is permanent for Gmail)
+	// ProcessedAction determines how a mail is marked after processing.
+	// Supported: "markRead" (default), "delete".
 	ProcessedAction string `yaml:"processedAction"`
 }
 
- // AttachmentStrategy is a strongly-typed enum for attachment handling behavior.
+// AttachmentStrategy is a strongly-typed enum for attachment handling behaviour.
 type AttachmentStrategy string
 
 const (
@@ -60,22 +60,25 @@ const (
 )
 
 // AttachmentsConfig controls forwarding of attachments in webhook requests.
- // Strategy defines how to handle attachments: "ignore", "multipartBundle", or "multipartPerAttachment".
-// FieldName is the multipart form field name for files. It can be a static string or a Go text/template.
-// MaxSize is optional per-attachment size limit (e.g., "200Mi", "1MiB", "500MB"); empty or "0" means no limit.
 type AttachmentsConfig struct {
-	Strategy     AttachmentStrategy `yaml:"strategy"`
-	FieldName    string             `yaml:"fieldName"`
-	MaxSize      string             `yaml:"maxSize"`
-	MaxSizeBytes int64              `yaml:"-"`
+	// Strategy defines how to handle attachments.
+	Strategy AttachmentStrategy `yaml:"strategy"`
+	// FieldName is the multipart form field name; supports Go text/template variables.
+	FieldName string `yaml:"fieldName"`
+	// MaxSize is an optional per-attachment size limit (e.g. "200Mi"); empty or "0" means no limit.
+	MaxSize      string `yaml:"maxSize"`
+	MaxSizeBytes int64  `yaml:"-"`
 }
 
+// selectorNameRegex is compiled once and reused for every selector name validation.
+var selectorNameRegex = regexp.MustCompile(`^[0-9A-Za-z]+$`)
+
+// NewConfigFromYaml parses yamlBytes, applies defaults, and validates the result.
 func NewConfigFromYaml(yamlBytes []byte) (*Config, error) {
 	var cfg Config
 	if err := yaml.Unmarshal(yamlBytes, &cfg); err != nil {
 		return nil, err
 	}
-
 	setDefaults(&cfg)
 	if err := validateConfig(&cfg); err != nil {
 		return nil, err
@@ -84,22 +87,15 @@ func NewConfigFromYaml(yamlBytes []byte) (*Config, error) {
 }
 
 func setDefaults(cfg *Config) {
-	// Default log level
 	if strings.TrimSpace(cfg.LogLevel) == "" {
 		cfg.LogLevel = "info"
 	}
-
-	// Default mail client: enable gmail by default
 	if !cfg.MailClient.Gmail.Enabled {
 		cfg.MailClient.Gmail.Enabled = true
 	}
-
-	// Default processing action
 	if strings.TrimSpace(cfg.Processing.ProcessedAction) == "" {
 		cfg.Processing.ProcessedAction = "markRead"
 	}
-
-	// Attachments defaults
 	if strings.TrimSpace(cfg.Attachments.FieldName) == "" {
 		cfg.Attachments.FieldName = "attachment"
 	}
@@ -109,113 +105,95 @@ func setDefaults(cfg *Config) {
 }
 
 func validateConfig(cfg *Config) error {
-	// log level
+	if err := validateLogLevel(cfg); err != nil {
+		return err
+	}
+	for i := range cfg.MailSelectors {
+		if err := validateMailSelectorConfig(&cfg.MailSelectors[i]); err != nil {
+			return err
+		}
+	}
+	if !cfg.MailClient.Gmail.Enabled {
+		return fmt.Errorf("no mail client enabled; set mailClient.gmail.enabled: true")
+	}
+	if strings.TrimSpace(cfg.Callback.URL) == "" {
+		return fmt.Errorf("callback.url is required")
+	}
+	if err := validateProcessedAction(cfg); err != nil {
+		return err
+	}
+	return validateAttachments(&cfg.Attachments)
+}
+
+func validateLogLevel(cfg *Config) error {
 	level := strings.ToLower(strings.TrimSpace(cfg.LogLevel))
 	switch level {
 	case "debug", "info", "warn", "error":
 		cfg.LogLevel = level
+		return nil
 	default:
-		return fmt.Errorf("invalid logLevel '%s' (supported: debug, info, warn, error)", cfg.LogLevel)
+		return fmt.Errorf("invalid logLevel %q (supported: debug, info, warn, error)", cfg.LogLevel)
 	}
+}
 
-	// selectors
-	for _, sel := range cfg.MailSelectors {
-		if err := validateMailSelectorConfig(&sel); err != nil {
-			return err
-		}
-	}
-
-	// mail client
-	if !cfg.MailClient.Gmail.Enabled {
-		return fmt.Errorf("no mail client enabled; set mailClient.gmail.enabled: true")
-	}
-
-	// minimal hook validation: URL is required
-	if strings.TrimSpace(cfg.Callback.URL) == "" {
-		return fmt.Errorf("hook.url is empty")
-	}
-
-	// processing behavior
+func validateProcessedAction(cfg *Config) error {
 	switch strings.ToLower(strings.TrimSpace(cfg.Processing.ProcessedAction)) {
-	case "markRead", "markread", "":
+	case "markread":
 		cfg.Processing.ProcessedAction = "markRead"
 	case "delete":
-		cfg.Processing.ProcessedAction = "delete"
+		// already canonical
 	default:
-		return fmt.Errorf("invalid processing.processedAction '%s' (supported: markRead, delete)", cfg.Processing.ProcessedAction)
+		return fmt.Errorf("invalid processing.processedAction %q (supported: markRead, delete)", cfg.Processing.ProcessedAction)
 	}
-
-	// attachments
-	if err := validateAttachments(&cfg.Attachments); err != nil {
-		return err
-	}
-
 	return nil
 }
 
 func validateMailSelectorConfig(sel *MailSelectorConfig) error {
-	// name: alphanumeric only
-	nameRegex := regexp.MustCompile("^[0-9A-Za-z]+$")
-	if !nameRegex.MatchString(sel.Name) {
-		return fmt.Errorf("mailSelectors.name must match ^[0-9A-Za-z]+$: '%s'", sel.Name)
+	if !selectorNameRegex.MatchString(sel.Name) {
+		return fmt.Errorf("mailSelectors.name must match ^[0-9A-Za-z]+$: %q", sel.Name)
 	}
-
-	// type
 	switch sel.Type {
 	case "subjectRegex", "bodyRegex", "attachmentNameRegex", "senderRegex", "recipientRegex":
 	default:
-		return fmt.Errorf("mailSelectors.type not supported: '%s' (supported: 'subjectRegex','bodyRegex','attachmentNameRegex','senderRegex','recipientRegex')", sel.Type)
+		return fmt.Errorf("mailSelectors.type %q not supported (supported: subjectRegex, bodyRegex, attachmentNameRegex, senderRegex, recipientRegex)", sel.Type)
 	}
-
-	// pattern must compile
 	re, err := regexp.Compile(sel.Pattern)
 	if err != nil {
-		return fmt.Errorf("mailSelectors.pattern cannot be compiled: '%s' - error: %s", sel.Pattern, err)
+		return fmt.Errorf("mailSelectors.pattern %q cannot be compiled: %w", sel.Pattern, err)
 	}
-
-	// captureGroup must be >= 0 and not exceed available subexpressions
 	if sel.CaptureGroup < 0 {
 		return fmt.Errorf("mailSelectors.captureGroup must be >= 0 (got %d)", sel.CaptureGroup)
 	}
 	if sel.CaptureGroup > re.NumSubexp() {
-		return fmt.Errorf("mailSelectors.captureGroup (%d) exceeds number of groups (%d) in pattern '%s'", sel.CaptureGroup, re.NumSubexp(), sel.Pattern)
+		return fmt.Errorf("mailSelectors.captureGroup (%d) exceeds number of groups (%d) in pattern %q", sel.CaptureGroup, re.NumSubexp(), sel.Pattern)
 	}
-
 	return nil
 }
 
 func validateAttachments(att *AttachmentsConfig) error {
-	// Normalize and validate strategy
 	switch strings.ToLower(strings.TrimSpace(string(att.Strategy))) {
 	case "ignore":
 		att.Strategy = StrategyIgnore
-	case "multipartbundle", "":
+	case "multipartbundle":
 		att.Strategy = StrategyMultipartBundle
 	case "multipartperattachment":
 		att.Strategy = StrategyMultipartPerAttachment
 	default:
-		return fmt.Errorf("attachments.strategy invalid '%s' (supported: ignore, multipartBundle, multipartPerAttachment)", string(att.Strategy))
+		return fmt.Errorf("attachments.strategy %q is invalid (supported: ignore, multipartBundle, multipartPerAttachment)", att.Strategy)
 	}
 
-	// FieldName: allow static or templated names; no strict validation needed.
-	att.FieldName = strings.TrimSpace(att.FieldName)
-	if att.FieldName == "" {
-		att.FieldName = "attachment"
-	}
-
-	// Parse MaxSize (string) into bytes; empty or "0" means no limit
 	sizeStr := strings.TrimSpace(att.MaxSize)
 	if sizeStr == "" || sizeStr == "0" {
 		att.MaxSizeBytes = 0
 		return nil
 	}
-	bytes, err := parseSizeString(sizeStr)
+	n, err := parseSizeString(sizeStr)
 	if err != nil {
-		return fmt.Errorf("attachments.maxSize invalid '%s': %v", att.MaxSize, err)
+		return fmt.Errorf("attachments.maxSize %q is invalid: %w", att.MaxSize, err)
 	}
-	if bytes < 0 {
+	if n < 0 {
 		return fmt.Errorf("attachments.maxSize must be >= 0")
 	}
-	att.MaxSizeBytes = bytes
+	att.MaxSizeBytes = n
 	return nil
 }

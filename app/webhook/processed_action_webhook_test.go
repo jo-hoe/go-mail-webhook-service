@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -31,60 +30,38 @@ func successHTTPClient() *http.Client {
 	}
 }
 
-func Test_processMail_ProcessedAction_markRead(t *testing.T) {
-	ctx := context.Background()
-	client := successHTTPClient()
+func Test_processOneMail_ProcessedAction_markRead(t *testing.T) {
 	mock := &mail.MailClientServiceMock{}
-	m := mail.Mail{Subject: "s", Body: "b"}
 	cfg := &config.Config{
-		Callback: goback.Config{
-			URL:    "http://example.com",
-			Method: "POST",
-		},
-		Processing: config.Processing{
-			ProcessedAction: "markRead",
-		},
+		Callback:   goback.Config{URL: "http://example.com", Method: "POST"},
+		Processing: config.Processing{ProcessedAction: "markRead"},
 	}
 
-	var wg sync.WaitGroup
 	var fc atomic.Int64
-	wg.Add(1)
-	processMail(ctx, client, mock, m, cfg, map[string]string{}, &wg, &fc)
-	wg.Wait()
+	processOneMail(context.Background(), successHTTPClient(), mock, mail.Mail{Subject: "s", Body: "b"}, cfg, map[string]string{}, &fc)
 
 	if mock.MarkReadCalls != 1 {
-		t.Fatalf("expected MarkMailAsRead to be called once, got %d", mock.MarkReadCalls)
+		t.Fatalf("MarkMailAsRead called %d times, want 1", mock.MarkReadCalls)
 	}
 	if mock.DeleteCalls != 0 {
-		t.Fatalf("expected DeleteMail to not be called, got %d", mock.DeleteCalls)
+		t.Fatalf("DeleteMail called %d times, want 0", mock.DeleteCalls)
 	}
 }
 
-func Test_processMail_ProcessedAction_delete(t *testing.T) {
-	ctx := context.Background()
-	client := successHTTPClient()
+func Test_processOneMail_ProcessedAction_delete(t *testing.T) {
 	mock := &mail.MailClientServiceMock{}
-	m := mail.Mail{Subject: "s", Body: "b"}
 	cfg := &config.Config{
-		Callback: goback.Config{
-			URL:    "http://example.com",
-			Method: "POST",
-		},
-		Processing: config.Processing{
-			ProcessedAction: "delete",
-		},
+		Callback:   goback.Config{URL: "http://example.com", Method: "POST"},
+		Processing: config.Processing{ProcessedAction: "delete"},
 	}
 
-	var wg sync.WaitGroup
 	var fc atomic.Int64
-	wg.Add(1)
-	processMail(ctx, client, mock, m, cfg, map[string]string{}, &wg, &fc)
-	wg.Wait()
+	processOneMail(context.Background(), successHTTPClient(), mock, mail.Mail{Subject: "s", Body: "b"}, cfg, map[string]string{}, &fc)
 
 	if mock.DeleteCalls != 1 {
-		t.Fatalf("expected DeleteMail to be called once, got %d", mock.DeleteCalls)
+		t.Fatalf("DeleteMail called %d times, want 1", mock.DeleteCalls)
 	}
 	if mock.MarkReadCalls != 0 {
-		t.Fatalf("expected MarkMailAsRead to not be called, got %d", mock.MarkReadCalls)
+		t.Fatalf("MarkMailAsRead called %d times, want 0", mock.MarkReadCalls)
 	}
 }
