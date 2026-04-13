@@ -1,4 +1,4 @@
-FROM golang:1.26.1-alpine3.23 AS build
+FROM golang:1.26.2-alpine3.23 AS build
 
 WORKDIR /app
 COPY . .
@@ -7,7 +7,7 @@ RUN go mod download
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /bin/main ./main.go
 
-FROM golang:1.26.1-alpine3.23
+FROM golang:1.26.2-alpine3.23
 WORKDIR /go
 COPY --from=build /bin/main /go/main
 ENTRYPOINT ["./main"]
