@@ -95,6 +95,7 @@ func processOneMail(
 	failureCounter *atomic.Int64,
 ) {
 	strategy := NewAttachmentDeliveryStrategy(cfg.Attachments.Strategy)
+	slog.Info("start processing mail", "mailId", m.Id, "subject", m.Subject, "body_prefix", truncate(m.Body, 100), "received_at", m.ReceivedAt)
 	for _, req := range strategy.BuildRequests(cfg.Callback, cfg, m, selected) {
 		if len(req.ExpectedStatus) == 0 {
 			req.ExpectedStatus = defaultSuccessStatusCodes
@@ -105,7 +106,7 @@ func processOneMail(
 		}
 	}
 	applyProcessedAction(ctx, mailService, m, cfg.Processing.ProcessedAction)
-	slog.Info("successfully processed mail", "mailId", m.Id, "subject", m.Subject, "body_prefix", truncate(m.Body, 100))
+	slog.Info("successfully processed mail", "mailId", m.Id)
 }
 
 func applyProcessedAction(ctx context.Context, mailService mail.MailClientService, m mail.Mail, actionName string) {

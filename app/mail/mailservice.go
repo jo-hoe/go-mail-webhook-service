@@ -3,6 +3,7 @@ package mail
 import (
 	"context"
 	"fmt"
+	"time"
 )
 
 // ClientType identifies a mail client backend.
@@ -37,6 +38,7 @@ type Mail struct {
 	Subject     string
 	Body        string
 	Attachments []Attachment
+	ReceivedAt  time.Time
 }
 
 // NewMailClientService returns a MailClientService for the given client type.

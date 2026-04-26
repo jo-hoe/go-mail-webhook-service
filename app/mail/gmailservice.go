@@ -59,6 +59,7 @@ func (s *GmailService) GetAllUnreadMail(ctx context.Context) ([]Mail, error) {
 			Subject:     extractSubject(full.Payload.Headers),
 			Body:        extractPlainTextBody(full.Payload.Parts),
 			Attachments: extractAttachments(svc, "me", msg.Id, full.Payload.Parts),
+			ReceivedAt:  extractReceivedAt(full.InternalDate),
 		})
 	}
 	return result, nil
@@ -214,6 +215,11 @@ func findHeader(headers []*gmail.MessagePartHeader, name string) string {
 		}
 	}
 	return ""
+}
+
+// extractReceivedAt converts a Gmail InternalDate (epoch milliseconds) to UTC time.
+func extractReceivedAt(internalDateMs int64) time.Time {
+	return time.UnixMilli(internalDateMs).UTC()
 }
 
 func (s *GmailService) getGmailService(ctx context.Context, scope ...string) (*gmail.Service, error) {
