@@ -5,7 +5,7 @@ go 1.26.0
 require (
 	github.com/jo-hoe/goback v0.0.0-20260224123626-7161f1f6a625
 	golang.org/x/oauth2 v0.36.0
-	google.golang.org/api v0.279.0
+	google.golang.org/api v0.280.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
@@ -30,7 +30,7 @@ require (
 	golang.org/x/net v0.54.0 // indirect
 	golang.org/x/sys v0.44.0 // indirect
 	golang.org/x/text v0.37.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260427160629-7cedc36a6bc4 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260511170946-3700d4141b60 // indirect
 	google.golang.org/grpc v1.81.1 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )
