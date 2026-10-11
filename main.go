@@ -42,6 +42,15 @@ func main() {
 	}
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: level})))
 
+	slog.Info("configuration loaded",
+		"logLevel", cfg.LogLevel,
+		"selectors", len(cfg.MailSelectors),
+		"callbackMethod", cfg.Callback.Method,
+		"callbackURL", cfg.Callback.URL,
+		"processedAction", cfg.Processing.ProcessedAction,
+		"attachmentStrategy", cfg.Attachments.Strategy,
+	)
+
 	// Process config once and exit (suitable for Kubernetes Job execution)
 	if failMailsCount := webhook.NewWebhookService(cfg).Run(); failMailsCount > 0 {
 		slog.Error("webhook sends failed", "errors", failMailsCount)

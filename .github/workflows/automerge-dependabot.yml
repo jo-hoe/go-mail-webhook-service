@@ -15,8 +15,33 @@ jobs:
         uses: dependabot/fetch-metadata@v3
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
-      - name: Enable auto-merge for Dependabot PRs
-        run: gh pr merge --auto --merge "$PR_URL"
+      - name: Wait for lint and test, then merge
+        run: |
+          set -euo pipefail
+          # Poll the sibling checks (lint, test) until they all conclude.
+          # We cannot use `gh pr merge --auto`: that requires the repo's
+          # branch-protection/auto-merge feature, which is not enabled here,
+          # so it fails with "Protected branch rules not configured".
+          for i in $(seq 1 30); do
+            # Collect conclusions for every check context except this job's own.
+            rollup=$(gh pr view "$PR_URL" --json statusCheckRollup \
+              -q '[.statusCheckRollup[] | select(.name != "dependabot") | {name, status, conclusion}]')
+            echo "poll $i: $rollup"
+            pending=$(echo "$rollup" | jq '[.[] | select(.status != "COMPLETED")] | length')
+            failed=$(echo "$rollup" | jq '[.[] | select(.conclusion == "FAILURE" or .conclusion == "CANCELLED" or .conclusion == "TIMED_OUT")] | length')
+            if [ "$failed" -gt 0 ]; then
+              echo "a required check failed; not merging"
+              exit 1
+            fi
+            if [ "$pending" -eq 0 ]; then
+              echo "all checks passed; merging"
+              gh pr merge --merge "$PR_URL"
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "timed out waiting for checks to conclude"
+          exit 1
         env:
-          PR_URL: ${{github.event.pull_request.html_url}}
-          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
