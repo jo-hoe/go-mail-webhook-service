@@ -41,24 +41,29 @@ func (s *GmailService) GetAllUnreadMail(ctx context.Context) ([]Mail, error) {
 		return nil, err
 	}
 
+	slog.Debug("listing unread gmail messages", "query", "is:unread")
 	resp, err := svc.Users.Messages.List("me").Q("is:unread").Do()
 	if err != nil {
 		return nil, s.wrapGmailError(err, "list unread messages", "")
 	}
+	slog.Debug("unread message ids retrieved", "count", len(resp.Messages))
 
 	result := make([]Mail, 0, len(resp.Messages))
 	for _, msg := range resp.Messages {
+		slog.Debug("fetching full message", "mailId", msg.Id)
 		full, err := svc.Users.Messages.Get("me", msg.Id).Format("full").Do()
 		if err != nil {
-			return nil, err
+			return nil, s.wrapGmailError(err, "get message", msg.Id)
 		}
+		attachments := extractAttachments(svc, "me", msg.Id, full.Payload.Parts)
+		slog.Debug("message fetched", "mailId", msg.Id, "attachments", len(attachments))
 		result = append(result, Mail{
 			Id:          msg.Id,
 			Sender:      extractSender(full.Payload.Headers),
 			Recipients:  extractRecipients(full.Payload.Headers),
 			Subject:     extractSubject(full.Payload.Headers),
 			Body:        extractPlainTextBody(full.Payload.Parts),
-			Attachments: extractAttachments(svc, "me", msg.Id, full.Payload.Parts),
+			Attachments: attachments,
 			ReceivedAt:  extractReceivedAt(full.InternalDate),
 		})
 	}
@@ -70,6 +75,7 @@ func (s *GmailService) MarkMailAsRead(ctx context.Context, mail Mail) error {
 	if err != nil {
 		return err
 	}
+	slog.Debug("marking mail as read", "mailId", mail.Id)
 	req := &gmail.ModifyMessageRequest{RemoveLabelIds: []string{"UNREAD"}}
 	_, err = svc.Users.Messages.Modify("me", mail.Id, req).Do()
 	if err != nil {
@@ -83,6 +89,7 @@ func (s *GmailService) DeleteMail(ctx context.Context, mail Mail) error {
 	if err != nil {
 		return err
 	}
+	slog.Debug("deleting mail", "mailId", mail.Id)
 	if err := svc.Users.Messages.Delete("me", mail.Id).Do(); err != nil {
 		return s.wrapGmailError(err, "delete message", mail.Id)
 	}

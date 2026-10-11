@@ -121,6 +121,11 @@ func applyProcessedAction(ctx context.Context, mailService mail.MailClientServic
 }
 
 func sendRequest(ctx context.Context, client *http.Client, h goback.Config, selected map[string]string, m mail.Mail) error {
+	keys := make([]string, 0, len(selected))
+	for k := range selected {
+		keys = append(keys, k)
+	}
+	slog.Debug("sending webhook request", "mailId", m.Id, "method", h.Method, "url", h.URL, "templateKeys", keys)
 	exec, err := goback.NewCallbackExecutor(h, client)
 	if err != nil {
 		slog.Error("could not create webhook executor", "mailId", m.Id, "error", err)
