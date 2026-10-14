@@ -1,3 +1,4 @@
+// Package selector evaluates mails against configured selectors to extract values.
 package selector
 
 import (
@@ -23,9 +24,9 @@ type Selector interface {
 	SelectValue(mail.Mail) (string, error)
 }
 
-// SelectorPrototype represents an immutable, reusable selector configuration.
+// Prototype represents an immutable, reusable selector configuration.
 // It can produce fresh Selector instances for evaluation.
-type SelectorPrototype interface {
+type Prototype interface {
 	// NewInstance creates a new selector instance.
 	NewInstance() Selector
 }

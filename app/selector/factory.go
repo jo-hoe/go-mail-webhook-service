@@ -10,8 +10,8 @@ import (
 
 // NewSelectorPrototypes constructs immutable selector prototypes from configuration.
 // Supports "subjectRegex", "bodyRegex", "senderRegex", "recipientRegex", and "attachmentNameRegex".
-func NewSelectorPrototypes(cfgs []config.MailSelectorConfig) ([]SelectorPrototype, error) {
-	prototypes := make([]SelectorPrototype, 0, len(cfgs))
+func NewSelectorPrototypes(cfgs []config.MailSelectorConfig) ([]Prototype, error) {
+	prototypes := make([]Prototype, 0, len(cfgs))
 	for _, c := range cfgs {
 		switch c.Type {
 		case "subjectRegex", "bodyRegex", "senderRegex", "recipientRegex":

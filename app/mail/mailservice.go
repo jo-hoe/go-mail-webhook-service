@@ -17,8 +17,8 @@ const (
 	DefaultCredentialsPath = "/secrets/mail"
 )
 
-// MailClientService defines the operations required by the application.
-type MailClientService interface {
+// ClientService defines the operations required by the application.
+type ClientService interface {
 	GetAllUnreadMail(ctx context.Context) ([]Mail, error)
 	MarkMailAsRead(ctx context.Context, mail Mail) error
 	DeleteMail(ctx context.Context, mail Mail) error
@@ -32,7 +32,7 @@ type Attachment struct {
 
 // Mail represents an email message.
 type Mail struct {
-	Id          string
+	ID          string
 	Sender      string
 	Recipients  []string
 	Subject     string
@@ -41,9 +41,9 @@ type Mail struct {
 	ReceivedAt  time.Time
 }
 
-// NewMailClientService returns a MailClientService for the given client type.
+// NewMailClientService returns a ClientService for the given client type.
 // An empty ClientType defaults to GmailClientType.
-func NewMailClientService(clientType ClientType) (MailClientService, error) {
+func NewMailClientService(clientType ClientType) (ClientService, error) {
 	switch clientType {
 	case GmailClientType, "":
 		return NewGmailService(DefaultCredentialsPath), nil

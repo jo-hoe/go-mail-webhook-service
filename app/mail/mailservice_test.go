@@ -9,7 +9,7 @@ func TestNewMailClientService(t *testing.T) {
 	tests := []struct {
 		name       string
 		clientType ClientType
-		want       MailClientService
+		want       ClientService
 		wantErr    bool
 	}{
 		{

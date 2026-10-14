@@ -72,7 +72,7 @@ func copyFile(src, dst string, t *testing.T) {
 		}
 	}()
 
-	outputFile, err := os.Create(dst)
+	outputFile, err := os.Create(dst) // #nosec G304 -- test helper writing to a temp path under test control
 	if err != nil {
 		t.Errorf("Error: %v", err)
 	}

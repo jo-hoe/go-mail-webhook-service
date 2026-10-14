@@ -25,7 +25,7 @@ func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { retu
 func Test_filterMailsBySelectors(t *testing.T) {
 	type args struct {
 		mails  []mail.Mail
-		protos []selector.SelectorPrototype
+		protos []selector.Prototype
 	}
 	tests := []struct {
 		name string
@@ -51,7 +51,7 @@ func Test_filterMailsBySelectors(t *testing.T) {
 			name: "no selectors returns empty result",
 			args: args{
 				mails:  []mail.Mail{{Subject: "anything"}},
-				protos: []selector.SelectorPrototype{},
+				protos: []selector.Prototype{},
 			},
 			want: []mail.Mail{},
 		},
@@ -96,7 +96,7 @@ func Test_processOneMail_requestBodyTemplating(t *testing.T) {
 		}),
 	}
 
-	mock := &mail.MailClientServiceMock{}
+	mock := &mail.ClientServiceMock{}
 	m := mail.Mail{Subject: "s", Body: "b"}
 	cfg := &config.Config{
 		Callback: goback.Config{
@@ -184,7 +184,7 @@ func Test_processOneMail(t *testing.T) {
 				return
 			}
 			var fc atomic.Int64
-			processOneMail(context.Background(), okClient, &mail.MailClientServiceMock{}, tt.m, tt.cfg, selected, &fc)
+			processOneMail(context.Background(), okClient, &mail.ClientServiceMock{}, tt.m, tt.cfg, selected, &fc)
 			if tt.wantSuccessLog && !strings.Contains(logBuffer.String(), "successfully processed mail") {
 				t.Errorf("expected success log; got: %s", logBuffer.String())
 			}
@@ -199,11 +199,11 @@ func Test_processMails(t *testing.T) {
 	tests := []struct {
 		name        string
 		cfg         *config.Config
-		mailService mail.MailClientService
+		mailService mail.ClientService
 	}{
 		{
 			name: "mails are fetched and selector count is logged",
-			mailService: &mail.MailClientServiceMock{
+			mailService: &mail.ClientServiceMock{
 				Mails: []mail.Mail{
 					{Subject: "testSubject", Body: "testValue"},
 				},
@@ -278,7 +278,7 @@ func createString(ch rune, n int) string {
 	return sb.String()
 }
 
-func mustPrototypes(t *testing.T, cfgs []config.MailSelectorConfig) []selector.SelectorPrototype {
+func mustPrototypes(t *testing.T, cfgs []config.MailSelectorConfig) []selector.Prototype {
 	t.Helper()
 	protos, err := selector.NewSelectorPrototypes(cfgs)
 	if err != nil {

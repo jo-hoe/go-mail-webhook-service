@@ -1,8 +1,10 @@
+// Package main is a CLI that performs the Gmail OAuth flow and writes the token file.
 package main
 
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -20,13 +22,13 @@ func main() {
 	slog.SetDefault(logger)
 
 	args := os.Args
-	directory_of_client_secret_json := ""
+	directoryOfClientSecretJSON := ""
 	if len(args) < 2 {
-		directory_of_client_secret_json = "."
+		directoryOfClientSecretJSON = "."
 	} else {
-		directory_of_client_secret_json = args[1]
+		directoryOfClientSecretJSON = args[1]
 	}
-	generateToken(directory_of_client_secret_json)
+	generateToken(directoryOfClientSecretJSON)
 }
 
 func generateToken(pathToClientCredentials string) {
@@ -44,7 +46,7 @@ func getTokenFromWeb(context context.Context, pathToClientCredentials string, co
 	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
 	slog.Info("Open browser to authorize and paste the code", "auth_url", authURL)
 
-	http.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
+	http.HandleFunc("/", func(_ http.ResponseWriter, req *http.Request) {
 		authCode := req.URL.Query().Get("code")
 		if authCode == "" {
 			slog.Warn("authCode was empty")
@@ -80,16 +82,15 @@ func saveToken(path string, token *oauth2.Token) error {
 	slog.Info("saving credential file", "path", path)
 	file, err := os.OpenFile(filepath.Clean(path), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600) // #nosec G304 -- writing to fixed filename joined under user-provided directory
 	if err != nil {
-		return err
+		return fmt.Errorf("open token file: %w", err)
 	}
 	defer func() {
 		if cerr := file.Close(); cerr != nil {
 			slog.Error("Error closing file", "error", cerr)
 		}
 	}()
-	err = json.NewEncoder(file).Encode(token)
-	if err != nil {
-		return err
+	if err = json.NewEncoder(file).Encode(token); err != nil { // #nosec G117 -- intentionally persisting the OAuth token to the credentials file
+		return fmt.Errorf("encode token: %w", err)
 	}
 
 	return nil

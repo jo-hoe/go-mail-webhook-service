@@ -1,3 +1,4 @@
+// Package config loads, defaults, and validates the application configuration.
 package config
 
 import (
@@ -54,8 +55,11 @@ type Processing struct {
 type AttachmentStrategy string
 
 const (
-	StrategyIgnore                 AttachmentStrategy = "ignore"
-	StrategyMultipartBundle        AttachmentStrategy = "multipartBundle"
+	// StrategyIgnore drops attachments.
+	StrategyIgnore AttachmentStrategy = "ignore"
+	// StrategyMultipartBundle sends all attachments in a single multipart request.
+	StrategyMultipartBundle AttachmentStrategy = "multipartBundle"
+	// StrategyMultipartPerAttachment sends one multipart request per attachment.
 	StrategyMultipartPerAttachment AttachmentStrategy = "multipartPerAttachment"
 )
 
@@ -77,7 +81,7 @@ var selectorNameRegex = regexp.MustCompile(`^[0-9A-Za-z]+$`)
 func NewConfigFromYaml(yamlBytes []byte) (*Config, error) {
 	var cfg Config
 	if err := yaml.Unmarshal(yamlBytes, &cfg); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unmarshal config yaml: %w", err)
 	}
 	setDefaults(&cfg)
 	if err := validateConfig(&cfg); err != nil {

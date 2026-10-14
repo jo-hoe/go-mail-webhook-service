@@ -7,7 +7,7 @@ import (
 
 func TestNewProcessedAction_MarkReadAndDelete(t *testing.T) {
 	ctx := context.Background()
-	mock := &MailClientServiceMock{}
+	mock := &ClientServiceMock{}
 
 	// markRead (preferred K8s-style)
 	a, err := NewProcessedAction("markRead")

@@ -22,16 +22,19 @@ type RegexSelector struct {
 	proto *RegexSelectorPrototype
 }
 
+// NewInstance creates a new regex selector instance.
 func (p *RegexSelectorPrototype) NewInstance() Selector {
 	return &RegexSelector{
 		proto: p,
 	}
 }
 
+// Name returns the configured selector name.
 func (s *RegexSelector) Name() string {
 	return s.proto.name
 }
 
+// Type returns the selector type.
 func (s *RegexSelector) Type() string {
 	return s.proto.selType
 }

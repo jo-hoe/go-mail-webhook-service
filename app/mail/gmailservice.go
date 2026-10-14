@@ -1,3 +1,4 @@
+// Package mail fetches and acts on mails through a mail client backend.
 package mail
 
 import (
@@ -21,11 +22,13 @@ import (
 )
 
 const (
+	// CredentialsFileName is the OAuth client credentials file name.
 	CredentialsFileName = "client_secret.json"
-	TokenFileName       = "request.token"
+	// TokenFileName is the stored OAuth token file name.
+	TokenFileName = "request.token"
 )
 
-// GmailService implements MailClientService using the Gmail API.
+// GmailService implements ClientService using the Gmail API.
 type GmailService struct {
 	credentialsPath string
 }
@@ -35,6 +38,7 @@ func NewGmailService(credentialsPath string) *GmailService {
 	return &GmailService{credentialsPath: credentialsPath}
 }
 
+// GetAllUnreadMail fetches all unread mails from the mailbox.
 func (s *GmailService) GetAllUnreadMail(ctx context.Context) ([]Mail, error) {
 	svc, err := s.getGmailService(ctx, gmail.GmailModifyScope)
 	if err != nil {
@@ -58,7 +62,7 @@ func (s *GmailService) GetAllUnreadMail(ctx context.Context) ([]Mail, error) {
 		attachments := extractAttachments(svc, "me", msg.Id, full.Payload.Parts)
 		slog.Debug("message fetched", "mailId", msg.Id, "attachments", len(attachments))
 		result = append(result, Mail{
-			Id:          msg.Id,
+			ID:          msg.Id,
 			Sender:      extractSender(full.Payload.Headers),
 			Recipients:  extractRecipients(full.Payload.Headers),
 			Subject:     extractSubject(full.Payload.Headers),
@@ -70,28 +74,30 @@ func (s *GmailService) GetAllUnreadMail(ctx context.Context) ([]Mail, error) {
 	return result, nil
 }
 
+// MarkMailAsRead removes the UNREAD label from the given mail.
 func (s *GmailService) MarkMailAsRead(ctx context.Context, mail Mail) error {
 	svc, err := s.getGmailService(ctx, gmail.GmailModifyScope)
 	if err != nil {
 		return err
 	}
-	slog.Debug("marking mail as read", "mailId", mail.Id)
+	slog.Debug("marking mail as read", "mailId", mail.ID)
 	req := &gmail.ModifyMessageRequest{RemoveLabelIds: []string{"UNREAD"}}
-	_, err = svc.Users.Messages.Modify("me", mail.Id, req).Do()
+	_, err = svc.Users.Messages.Modify("me", mail.ID, req).Do()
 	if err != nil {
-		return s.wrapGmailError(err, "mark message as read", mail.Id)
+		return s.wrapGmailError(err, "mark message as read", mail.ID)
 	}
 	return nil
 }
 
+// DeleteMail permanently deletes the given mail.
 func (s *GmailService) DeleteMail(ctx context.Context, mail Mail) error {
 	svc, err := s.getGmailService(ctx, gmail.GmailModifyScope)
 	if err != nil {
 		return err
 	}
-	slog.Debug("deleting mail", "mailId", mail.Id)
-	if err := svc.Users.Messages.Delete("me", mail.Id).Do(); err != nil {
-		return s.wrapGmailError(err, "delete message", mail.Id)
+	slog.Debug("deleting mail", "mailId", mail.ID)
+	if err := svc.Users.Messages.Delete("me", mail.ID).Do(); err != nil {
+		return s.wrapGmailError(err, "delete message", mail.ID)
 	}
 	return nil
 }
@@ -238,7 +244,11 @@ func (s *GmailService) getGmailService(ctx context.Context, scope ...string) (*g
 	if err != nil {
 		return nil, err
 	}
-	return gmail.NewService(ctx, option.WithTokenSource(ts))
+	svc, err := gmail.NewService(ctx, option.WithTokenSource(ts))
+	if err != nil {
+		return nil, fmt.Errorf("create gmail service: %w", err)
+	}
+	return svc, nil
 }
 
 // GetGmailConfig reads the OAuth client configuration from the credentials directory.
@@ -248,14 +258,18 @@ func GetGmailConfig(credentialsPath string, scope ...string) (*oauth2.Config, er
 	if err != nil {
 		return nil, fmt.Errorf("failed to read Gmail credentials at %s: %w", credFile, err)
 	}
-	return google.ConfigFromJSON(b, scope...)
+	cfg, err := google.ConfigFromJSON(b, scope...)
+	if err != nil {
+		return nil, fmt.Errorf("parse gmail credentials: %w", err)
+	}
+	return cfg, nil
 }
 
 // tokenFromFile loads an OAuth token from disk.
 func tokenFromFile(path string) (*oauth2.Token, error) {
 	f, err := os.Open(path) // #nosec G304 -- path is built from a configured directory and fixed filename
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("open token file: %w", err)
 	}
 	defer func() {
 		if cerr := f.Close(); cerr != nil {
@@ -263,7 +277,10 @@ func tokenFromFile(path string) (*oauth2.Token, error) {
 		}
 	}()
 	token := &oauth2.Token{}
-	return token, json.NewDecoder(f).Decode(token)
+	if err := json.NewDecoder(f).Decode(token); err != nil {
+		return nil, fmt.Errorf("decode token file: %w", err)
+	}
+	return token, nil
 }
 
 // tokenSavingSource wraps a TokenSource and persists refreshed tokens to disk.
@@ -279,7 +296,7 @@ type tokenSavingSource struct {
 func (s *tokenSavingSource) Token() (*oauth2.Token, error) {
 	t, err := s.TokenSource.Token()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("refresh token: %w", err)
 	}
 	if !s.writable {
 		return t, nil
@@ -298,7 +315,7 @@ func (s *tokenSavingSource) Token() (*oauth2.Token, error) {
 			slog.Error("error closing token file", "error", cerr)
 		}
 	}()
-	if err := json.NewEncoder(f).Encode(t); err != nil {
+	if err := json.NewEncoder(f).Encode(t); err != nil { // #nosec G117 -- intentionally persisting the OAuth token to the credentials file
 		slog.Error("failed to encode token", "path", s.path, "error", err)
 	}
 	return t, nil

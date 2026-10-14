@@ -1,6 +1,8 @@
+// Package main runs the mail webhook service once and exits, suitable for a Kubernetes Job.
 package main
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -14,9 +16,13 @@ var configFileName = filepath.Join("config", "config.yaml")
 func getConfig() (*config.Config, error) {
 	yamlFile, err := os.ReadFile(filepath.Clean(configFileName)) // #nosec G304 -- reading a fixed config file path
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read config file: %w", err)
 	}
-	return config.NewConfigFromYaml(yamlFile)
+	cfg, err := config.NewConfigFromYaml(yamlFile)
+	if err != nil {
+		return nil, fmt.Errorf("parse config: %w", err)
+	}
+	return cfg, nil
 }
 
 func main() {

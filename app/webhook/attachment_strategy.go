@@ -1,3 +1,4 @@
+// Package webhook fetches mails, evaluates selectors, and delivers webhook callbacks.
 package webhook
 
 import (
@@ -80,16 +81,16 @@ func (st *multipartPerAttachmentStrategy) BuildRequests(base goback.Config, cfg 
 	return requests
 }
 
-// filterAttachmentsBySize returns the subset of atts whose content size does not exceed max.
-// When max <= 0, all attachments are returned unchanged.
-func filterAttachmentsBySize(atts []mail.Attachment, max int64) []mail.Attachment {
-	if max <= 0 {
+// filterAttachmentsBySize returns the subset of atts whose content size does not exceed maxBytes.
+// When maxBytes <= 0, all attachments are returned unchanged.
+func filterAttachmentsBySize(atts []mail.Attachment, maxBytes int64) []mail.Attachment {
+	if maxBytes <= 0 {
 		return atts
 	}
 	result := make([]mail.Attachment, 0, len(atts))
 	for _, a := range atts {
-		if int64(len(a.Content)) > max {
-			slog.Warn("skipping attachment: exceeds size limit", "name", a.Name, "size_bytes", len(a.Content), "max_bytes", max)
+		if int64(len(a.Content)) > maxBytes {
+			slog.Warn("skipping attachment: exceeds size limit", "name", a.Name, "size_bytes", len(a.Content), "max_bytes", maxBytes)
 			continue
 		}
 		result = append(result, a)

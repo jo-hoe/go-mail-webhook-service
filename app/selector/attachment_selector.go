@@ -13,20 +13,25 @@ type AttachmentNameRegexSelectorPrototype struct {
 	re   *regexp.Regexp
 }
 
+// AttachmentNameRegexSelector is a stateless instance created from an
+// AttachmentNameRegexSelectorPrototype.
 type AttachmentNameRegexSelector struct {
 	proto *AttachmentNameRegexSelectorPrototype
 }
 
+// NewInstance creates a new attachment name regex selector instance.
 func (p *AttachmentNameRegexSelectorPrototype) NewInstance() Selector {
 	return &AttachmentNameRegexSelector{
 		proto: p,
 	}
 }
 
+// Name returns the configured selector name.
 func (s *AttachmentNameRegexSelector) Name() string {
 	return s.proto.name
 }
 
+// Type returns the selector type.
 func (s *AttachmentNameRegexSelector) Type() string {
 	return "attachmentNameRegex"
 }

@@ -31,7 +31,7 @@ func successHTTPClient() *http.Client {
 }
 
 func Test_processOneMail_ProcessedAction_markRead(t *testing.T) {
-	mock := &mail.MailClientServiceMock{}
+	mock := &mail.ClientServiceMock{}
 	cfg := &config.Config{
 		Callback:   goback.Config{URL: "http://example.com", Method: "POST"},
 		Processing: config.Processing{ProcessedAction: "markRead"},
@@ -49,7 +49,7 @@ func Test_processOneMail_ProcessedAction_markRead(t *testing.T) {
 }
 
 func Test_processOneMail_ProcessedAction_delete(t *testing.T) {
-	mock := &mail.MailClientServiceMock{}
+	mock := &mail.ClientServiceMock{}
 	cfg := &config.Config{
 		Callback:   goback.Config{URL: "http://example.com", Method: "POST"},
 		Processing: config.Processing{ProcessedAction: "delete"},

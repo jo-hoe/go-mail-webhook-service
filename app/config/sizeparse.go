@@ -25,7 +25,7 @@ func parseSizeString(s string) (int64, error) {
 
 	n, err := strconv.ParseInt(m[1], 10, 64)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("parse size number: %w", err)
 	}
 
 	factor, err := unitFactor(strings.ToLower(m[2]))

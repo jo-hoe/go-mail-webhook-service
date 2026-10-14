@@ -5,14 +5,16 @@ import (
 	"fmt"
 )
 
-type MailClientServiceMock struct {
+// ClientServiceMock is a test double for ClientService that records calls.
+type ClientServiceMock struct {
 	ReturnErrorsOnly bool
 	Mails            []Mail
 	MarkReadCalls    int
 	DeleteCalls      int
 }
 
-func (service *MailClientServiceMock) GetAllUnreadMail(context context.Context) ([]Mail, error) {
+// GetAllUnreadMail returns the configured mails, or an error when ReturnErrorsOnly is set.
+func (service *ClientServiceMock) GetAllUnreadMail(_ context.Context) ([]Mail, error) {
 	if service.ReturnErrorsOnly {
 		return nil, fmt.Errorf("dummy error")
 	}
@@ -20,7 +22,8 @@ func (service *MailClientServiceMock) GetAllUnreadMail(context context.Context) 
 	return service.Mails, nil
 }
 
-func (service *MailClientServiceMock) MarkMailAsRead(context context.Context, mail Mail) error {
+// MarkMailAsRead records the call, or returns an error when ReturnErrorsOnly is set.
+func (service *ClientServiceMock) MarkMailAsRead(_ context.Context, _ Mail) error {
 	if service.ReturnErrorsOnly {
 		return fmt.Errorf("dummy error")
 	}
@@ -28,7 +31,8 @@ func (service *MailClientServiceMock) MarkMailAsRead(context context.Context, ma
 	return nil
 }
 
-func (service *MailClientServiceMock) DeleteMail(context context.Context, mail Mail) error {
+// DeleteMail records the call, or returns an error when ReturnErrorsOnly is set.
+func (service *ClientServiceMock) DeleteMail(_ context.Context, _ Mail) error {
 	if service.ReturnErrorsOnly {
 		return fmt.Errorf("dummy error")
 	}
