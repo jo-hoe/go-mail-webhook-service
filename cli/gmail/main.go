@@ -80,7 +80,7 @@ func getTokenFromWeb(context context.Context, pathToClientCredentials string, co
 // Saves a token to a file path.
 func saveToken(path string, token *oauth2.Token) error {
 	slog.Info("saving credential file", "path", path)
-	file, err := os.OpenFile(filepath.Clean(path), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600) // #nosec G304 -- writing to fixed filename joined under user-provided directory
+	file, err := os.OpenFile(filepath.Clean(path), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600) // #nosec G304,G703 -- CLI tool writing a fixed filename under a user-supplied credentials directory
 	if err != nil {
 		return fmt.Errorf("open token file: %w", err)
 	}
