@@ -267,15 +267,22 @@ func tokenFromFile(path string) (*oauth2.Token, error) {
 }
 
 // tokenSavingSource wraps a TokenSource and persists refreshed tokens to disk.
+// Persistence is skipped when the token path is not writable (e.g. a read-only
+// Kubernetes secret mount), since the refresh_token still lets each run
+// re-authenticate from the mounted token.
 type tokenSavingSource struct {
 	oauth2.TokenSource
-	path string
+	path     string
+	writable bool
 }
 
 func (s *tokenSavingSource) Token() (*oauth2.Token, error) {
 	t, err := s.TokenSource.Token()
 	if err != nil {
 		return nil, err
+	}
+	if !s.writable {
+		return t, nil
 	}
 	f, err := os.OpenFile(s.path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
@@ -306,5 +313,23 @@ func (s *GmailService) getTokenSource(ctx context.Context, cfg *oauth2.Config) (
 	if token.Expiry.Before(time.Now().Add(-time.Minute)) && token.RefreshToken == "" {
 		return nil, fmt.Errorf("OAuth token at %s is expired with no refresh_token; re-authorize using cli/gmail", tokenPath)
 	}
-	return &tokenSavingSource{TokenSource: cfg.TokenSource(ctx, token), path: tokenPath}, nil
+	writable := isTokenPathWritable(tokenPath)
+	if !writable {
+		slog.Info("token path is read-only; refreshed tokens will not be persisted", "path", tokenPath)
+	}
+	return &tokenSavingSource{TokenSource: cfg.TokenSource(ctx, token), path: tokenPath, writable: writable}, nil
+}
+
+// isTokenPathWritable reports whether refreshed tokens can be written back to
+// path, so the saving source can skip per-refresh write attempts (and the
+// repeated warnings) on read-only mounts like Kubernetes secret volumes.
+func isTokenPathWritable(path string) bool {
+	f, err := os.OpenFile(path, os.O_WRONLY, 0600) // #nosec G304 -- path is built from a configured directory and fixed filename
+	if err != nil {
+		return false
+	}
+	if cerr := f.Close(); cerr != nil {
+		slog.Error("error closing token file", "error", cerr)
+	}
+	return true
 }
