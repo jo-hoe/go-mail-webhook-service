@@ -35,8 +35,21 @@ jobs:
             fi
             if [ "$pending" -eq 0 ]; then
               echo "all checks passed; merging"
-              gh pr merge --merge "$PR_URL"
-              exit 0
+              # Retry up to 3 times to handle transient merge conflicts
+              # (e.g. a race between this job and another PR landing on main).
+              for attempt in 1 2 3; do
+                if gh pr merge --merge "$PR_URL"; then
+                  exit 0
+                fi
+                mergeable=$(gh pr view "$PR_URL" --json mergeable -q '.mergeable')
+                if [ "$mergeable" = "CONFLICTING" ]; then
+                  echo "merge conflict detected; requesting rebase (attempt $attempt)"
+                  gh pr comment "$PR_URL" --body "@dependabot rebase"
+                  exit 0
+                fi
+                sleep 5
+              done
+              exit 1
             fi
             sleep 20
           done
